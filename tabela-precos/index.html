@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CMS Gallant</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Roboto, sans-serif; background: #fafafa; }
+        :root { --gallant-blue: #002F5D; --gallant-pink: #EBCBC9; }
+        .app-container { display: flex; height: 100vh; }
+        .sidebar { width: 280px; background: linear-gradient(180deg, var(--gallant-blue), #001f3f); color: white; display: flex; flex-direction: column; overflow-y: auto; }
+        .sidebar-header { padding: 24px 16px; border-bottom: 1px solid rgba(255,255,255,0.1); text-align: center; }
+        .sidebar-logo { width: 100%; height: 60px; object-fit: contain; margin-bottom: 12px; }
+        .sidebar-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+        .sidebar-subtitle { font-size: 11px; opacity: 0.8; color: var(--gallant-pink); text-transform: uppercase; }
+        .sidebar-nav { flex: 1; padding: 12px 0; }
+        .nav-item { display: flex; align-items: center; gap: 16px; padding: 14px 20px; margin: 0 8px; border-radius: 4px; cursor: pointer; color: rgba(255,255,255,0.85); border: none; background: transparent; width: calc(100% - 16px); font-size: 14px; font-weight: 500; }
+        .nav-item:hover { background: rgba(255,255,255,0.12); }
+        .nav-item.active { background: rgba(235,203,201,0.25); color: var(--gallant-pink); border-left: 3px solid var(--gallant-pink); padding-left: 17px; }
+        .sidebar-footer { padding: 16px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 11px; opacity: 0.7; text-align: center; }
+        .main-content { flex: 1; display: flex; flex-direction: column; }
+        .top-bar { background: white; border-bottom: 1px solid #e0e0e0; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+        .top-bar-title { font-size: 24px; font-weight: 500; color: var(--gallant-blue); }
+        .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500; }
+        .btn-primary { background: var(--gallant-blue); color: white; }
+        .btn-primary:hover { background: #001a39; }
+        .btn-success { background: #4caf50; color: white; }
+        .btn-secondary { background: #757575; color: white; }
+        .content-area { flex: 1; overflow-y: auto; padding: 24px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); padding: 24px; margin-bottom: 24px; }
+        .card-title { font-size: 20px; font-weight: 500; color: var(--gallant-blue); margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
+        .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
+        .product-card { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.08); display: flex; flex-direction: column; border: 1px solid #e8e8e8; }
+        .product-image { width: 100%; height: 150px; background: #f5f5f5; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .product-image img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .product-info { padding: 16px; flex: 1; }
+        .product-category { font-size: 10px; color: var(--gallant-pink); font-weight: 700; text-transform: uppercase; margin-bottom: 6px; }
+        .product-code { font-size: 13px; font-weight: 700; color: var(--gallant-blue); margin-bottom: 6px; }
+        .product-description { font-size: 12px; color: #666; margin-bottom: 8px; flex: 1; }
+        .product-price { font-size: 16px; font-weight: 700; color: var(--gallant-blue); margin-bottom: 12px; }
+        .product-actions { display: flex; gap: 8px; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; border-radius: 8px; padding: 32px; max-width: 600px; width: 95%; max-height: 90vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #e0e0e0; }
+        .modal-title { font-size: 24px; font-weight: 500; color: var(--gallant-blue); margin: 0; display: flex; align-items: center; gap: 12px; }
+        .modal-close { background: none; border: none; font-size: 28px; cursor: pointer; color: #999; }
+        .form-group { margin-bottom: 20px; }
+        .form-label { font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--gallant-blue); text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
+        .form-control { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: Roboto, sans-serif; }
+        .form-control:focus { outline: none; border-color: var(--gallant-blue); box-shadow: 0 0 0 3px rgba(0,47,93,0.08); }
+        textarea.form-control { min-height: 100px; }
+        .form-hint { font-size: 12px; color: #999; margin-top: 6px; }
+        .image-preview { margin-top: 12px; }
+        .image-preview.hidden { display: none; }
+        .image-preview img { max-width: 200px; max-height: 200px; border-radius: 4px; border: 1px solid #ddd; }
+        .modal-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 28px; }
+        .categories-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+        .category-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: #fafafa; border-radius: 4px; border-left: 3px solid var(--gallant-blue); }
+        .category-delete { background: #f44336; color: white; border: none; padding: 6px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="https://res.cloudinary.com/djoixkakr/image/upload/v1764244366/Logo_gallant_branco_1_sx9m82.webp" alt="Logo" class="sidebar-logo">
+                <h1 class="sidebar-title">Tabela de Preços | Gerenciador</h1>
+                <p class="sidebar-subtitle">Gallant</p>
+            </div>
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-tab="products"><span class="material-icons">shopping_bag</span><span>Produtos</span></button>
+                <button class="nav-item" data-tab="categories"><span class="material-icons">label</span><span>Categorias</span></button>
+                <button class="nav-item" data-tab="preview"><span class="material-icons">visibility</span><span>Visualizar</span></button>
+                <button class="nav-item" data-tab="backup"><span class="material-icons">cloud_download</span><span>Backup</span></button>
+            </nav>
+            <div class="sidebar-footer"> 2025 Gallant</div>
+        </aside>
+        <div class="main-content">
+            <div class="top-bar">
+                <h1 class="top-bar-title">Produtos</h1>
+                <button id="addProductBtn" class="btn btn-primary"><span class="material-icons">add_circle</span>Novo</button>
+            </div>
+            <div class="content-area">
+                <div id="products" class="tab-content active"><div id="productsList" class="products-grid"></div></div>
+                <div id="categories" class="tab-content"><div class="card"><h2 class="card-title"><span class="material-icons">label</span>Categorias</h2><input type="text" id="newCategoryInput" placeholder="Nome da categoria..." class="form-control"><button id="addCategoryBtn" class="btn btn-success" style="margin-top: 12px;">Adicionar</button><div id="categoriesList" class="categories-list" style="margin-top: 20px;"></div></div></div>
+                <div id="preview" class="tab-content"><div id="previewContainer"></div></div>
+                <div id="backup" class="tab-content"><div class="card"><h2 class="card-title"><span class="material-icons">backup</span>Backup e Importação</h2><div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 24px;"><button id="generatePdfBtn" class="btn btn-success"><span class="material-icons">picture_as_pdf</span>Gerar PDF</button><button id="downloadBackupBtn" class="btn btn-success"><span class="material-icons">download</span>Exportar JSON</button><div><input type="file" id="importBackupInput" accept=".json" class="form-control" style="margin-bottom: 12px;"><button id="importBackupBtn" class="btn btn-primary"><span class="material-icons">upload</span>Importar JSON</button></div><div><input type="file" id="importCsvInput" accept=".csv" class="form-control" style="margin-bottom: 12px;"><button id="importCsvBtn" class="btn btn-primary"><span class="material-icons">upload</span>Importar CSV</button></div></div></div></div>
+            </div>
+        </div>
+    </div>
+    <div class="modal" id="productModal">
+        <div class="modal-content">
+            <div class="modal-header"><h2 class="modal-title" id="modalTitle"><span class="material-icons">add</span>Novo Produto</h2><button type="button" class="modal-close" id="closeModalBtn"><span class="material-icons">close</span></button></div>
+            <form id="productForm">
+                <div class="form-group"><label class="form-label"><span class="material-icons" style="font-size: 18px;">code</span>Código</label><input type="text" id="productCode" class="form-control" required></div>
+                <div class="form-group"><label class="form-label"><span class="material-icons" style="font-size: 18px;">description</span>Descrição</label><textarea id="productDescription" class="form-control" required></textarea></div>
+                <div class="form-group"><label class="form-label"><span class="material-icons" style="font-size: 18px;">category</span>Categoria</label><select id="productCategory" class="form-control" required><option value="">Selecione uma categoria</option></select></div>
+                <div class="form-group"><label class="form-label"><span class="material-icons" style="font-size: 18px;">attach_money</span>Preço</label><input type="number" id="productPrice" step="0.01" min="0" class="form-control" required></div>
+                <div class="form-group"><label class="form-label"><span class="material-icons" style="font-size: 18px;">image</span>Imagem</label><input type="file" id="productImage" accept="image/jpeg,image/png" class="form-control"><p class="form-hint">Máximo 2MB (JPG ou PNG)</p><div id="imagePreview" class="image-preview hidden"><img id="previewImg" alt="Preview da imagem"></div></div>
+                <div class="modal-actions"><button type="button" id="cancelModalBtn" class="btn btn-secondary">Cancelar</button><button type="submit" class="btn btn-primary">Salvar Produto</button></div>
+            </form>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/html2pdf@0.10.1/dist/html2pdf.bundle.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
