@@ -8,6 +8,18 @@ const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
 
 // Inicializar (será chamado depois de adicionar os event listeners)
 
+// Função para tratar erros de carregamento de imagem
+function handleImageError(imgElement, productCode, imageUrl) {
+    console.error(`❌ Erro ao carregar imagem do produto ${productCode}: ${imageUrl}`);
+    const container = imgElement.parentElement;
+    if (container) {
+        container.innerHTML = `<div style="text-align: center; color: #ccc; font-size: 11px; padding: 8px; word-break: break-all;">
+            <div style="margin-bottom: 4px;">⚠️ Erro ao carregar</div>
+            <div style="font-size: 9px; opacity: 0.6;">${imageUrl.substring(0, 40)}...</div>
+        </div>`;
+    }
+}
+
 // Debug: função para verificar as imagens dos produtos
 function debugImages() {
     console.log('=== DEBUG DE IMAGENS ===');
@@ -21,12 +33,14 @@ function debugImages() {
             // Tentar carregar a imagem
             const img = new Image();
             img.onload = () => console.log(`   ✓ Imagem carrega com sucesso!`);
-            img.onerror = () => console.log(`   ✗ ERRO ao carregar a imagem!`);
+            img.onerror = (e) => console.log(`   ✗ ERRO ao carregar: ${e.type}`);
             img.src = p.image;
+            img.crossOrigin = 'anonymous';
         }
     });
 }
 window.debugImages = debugImages; // Expor no console global
+window.handleImageError = handleImageError; // Expor para uso no HTML
 
 // ===== STORAGE =====
 function saveToStorage() {
@@ -101,9 +115,9 @@ function renderProducts() {
         
         return `
         <div class="product-card">
-            <div class="product-image">
+            <div class="product-image" data-product-code="${product.code}">
                 ${imageUrl 
-                    ? `<img src="${imageUrl}" alt="${product.code}" style="max-height: 100%; max-width: 100%; object-fit: contain;" onerror="console.error('Erro ao carregar imagem:', this.src); this.style.display='none'; this.parentElement.innerHTML='<span style=\"color: #ccc; font-size: 12px;\">Erro ao carregar imagem</span>';" crossorigin="anonymous">`
+                    ? `<img src="${imageUrl}" alt="${product.code}" style="max-height: 100%; max-width: 100%; object-fit: contain;" onerror="handleImageError(this, '${product.code}', '${imageUrl}')" crossorigin="anonymous" referrerpolicy="no-referrer" loading="lazy">`
                     : '<span style="color: #ccc;">Sem imagem</span>'
                 }
             </div>
@@ -403,7 +417,7 @@ function updatePreview() {
                             <div style="display: grid; grid-template-columns: 1fr 1fr 3fr 1fr; gap: 6px; align-items: center; height: 15.2mm;">
                                 <div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px; display: flex; align-items: center; justify-content: center; padding: 3px; overflow: hidden; height: 100%;">
                                     ${product.image 
-                                        ? `<img src="${product.image}" alt="${product.code}" style="max-height: 100%; max-width: 100%; object-fit: contain;">`
+                                        ? `<img src="${product.image}" alt="${product.code}" style="max-height: 100%; max-width: 100%; object-fit: contain;" crossorigin="anonymous" referrerpolicy="no-referrer" onerror="this.style.display='none'; this.parentElement.innerHTML='<span style=\\\"color: #ccc; font-size: 8px;\\\">Erro</span>'">`
                                         : '<span style="color: #ccc; font-size: 8px;">Sem img</span>'
                                     }
                                 </div>
@@ -621,6 +635,14 @@ function importCSV(event) {
             const headerValues = parseCSVLine(lines[0]);
             const headers = headerValues.map(h => h.toLowerCase().trim());
             
+            // LOG DETALHADO DOS HEADERS
+            console.log('%c=== ANÁLISE DO ARQUIVO CSV ===', 'color: #002F5D; font-weight: bold; font-size: 14px;');
+            console.log('%cColunas encontradas:', 'color: #EBCBC9; font-weight: bold; font-size: 12px;');
+            headerValues.forEach((h, i) => {
+                console.log(`  [${i}] "${h}"`);
+            });
+            console.log('%c================================', 'color: #002F5D; font-weight: bold;');
+            
             const codeIndex = headers.indexOf('código') >= 0 ? headers.indexOf('código') : headers.indexOf('code');
             const descIndex = headers.indexOf('descrição') >= 0 ? headers.indexOf('descrição') : headers.indexOf('description');
             const catIndex = headers.indexOf('categoria') >= 0 ? headers.indexOf('categoria') : headers.indexOf('category');
@@ -628,18 +650,41 @@ function importCSV(event) {
             
             // Procurar por coluna de imagem com vários nomes possíveis
             let imageIndex = -1;
-            const possibleImageNames = ['imagem', 'image', 'img', 'url', 'url_imagem', 'url_image', 'foto', 'photo'];
+            const possibleImageNames = ['imagem', 'image', 'img', 'url', 'url_imagem', 'url_image', 'foto', 'photo', 'url_foto', 'url da imagem', 'imagem_url'];
+            
+            // Procura exata primeiro
             for (const name of possibleImageNames) {
                 imageIndex = headers.indexOf(name);
                 if (imageIndex >= 0) {
-                    console.log(`✓ Coluna de imagem encontrada: "${headerValues[imageIndex]}" (índice ${imageIndex})`);
+                    console.log(`✓ Coluna de imagem encontrada (exata): "${headerValues[imageIndex]}" (índice ${imageIndex})`);
                     break;
+                }
+            }
+            
+            // Se não encontrou, procura por contains
+            if (imageIndex === -1) {
+                for (let i = 0; i < headers.length; i++) {
+                    const header = headers[i];
+                    if (header.includes('imagem') || header.includes('image') || header.includes('img') || 
+                        header.includes('url') || header.includes('foto') || header.includes('photo')) {
+                        imageIndex = i;
+                        console.log(`✓ Coluna de imagem encontrada (contains): "${headerValues[i]}" (índice ${i})`);
+                        break;
+                    }
                 }
             }
             
             console.log('Headers encontrados:', { codeIndex, descIndex, catIndex, priceIndex, imageIndex });
             console.log('Headers originais:', headerValues);
             console.log('Headers lowercase:', headers);
+            if (imageIndex === -1) {
+                console.warn('%c⚠️ AVISO: Nenhuma coluna de imagem encontrada!', 'color: #ff9800; font-weight: bold; font-size: 12px;');
+                console.warn('%cColunas encontradas no seu CSV:', 'color: #ff9800; font-weight: bold;');
+                headerValues.forEach((h, i) => {
+                    console.warn(`  [${i}] "${h}"`);
+                });
+                console.warn('%cRenomeie uma coluna para: "imagem" ou "image" ou "url"', 'color: #ff9800; font-weight: bold;');
+            }
             
             if (codeIndex === -1 || descIndex === -1 || catIndex === -1 || priceIndex === -1) {
                 throw new Error('Colunas obrigatórias não encontradas: Código, Descrição, Categoria, Preço');
@@ -670,7 +715,10 @@ function importCSV(event) {
                 // Validar e limpar imagem URL
                 let validImage = '';
                 if (image && image.trim() && image.toLowerCase() !== 'vazia') {
-                    const cleanImage = image.trim().replace(/^['"]|['"]$/g, ''); // Remove aspas extras
+                    // Remove aspas extras, espaços e caracteres inválidos
+                    let cleanImage = image.trim().replace(/^['"]|['"]$/g, '');
+                    cleanImage = cleanImage.trim(); // Remove espaços novamente
+                    
                     if (cleanImage.startsWith('http://') || cleanImage.startsWith('https://')) {
                         validImage = cleanImage;
                         console.log(`  ✓ Imagem válida para ${code}: ${validImage}`);
@@ -698,6 +746,16 @@ function importCSV(event) {
             if (newProducts.length === 0) {
                 throw new Error('Nenhum produto válido encontrado no arquivo');
             }
+            
+            // Debug: mostrar primeiros 3 produtos com suas imagens
+            console.log('=== PRIMEIROS PRODUTOS IMPORTADOS ===');
+            newProducts.slice(0, 3).forEach(p => {
+                console.log(`${p.code}: "${p.image}"`);
+            });
+            
+            // Contar quantos têm imagem
+            const withImage = newProducts.filter(p => p.image).length;
+            console.log(`📊 Total: ${newProducts.length} | Com imagem: ${withImage} | Sem imagem: ${newProducts.length - withImage}`);
             
             // Perguntar se quer adicionar ou substituir
             const shouldReplace = confirm(`Encontrados ${newProducts.length} produtos.\n\n"OK" para ADICIONAR aos existentes\n"Cancelar" para SUBSTITUIR todos`);
