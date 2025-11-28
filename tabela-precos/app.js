@@ -358,9 +358,11 @@ function deleteProduct(id) {
     if (confirm('Tem certeza que deseja deletar este produto?')) {
         products = products.filter(p => p.id !== id);
         console.log('🗑️ Deletando produto, chamando saveToStorage()...');
-        saveToStorage();
-        renderProducts();
-        updatePreview();
+        (async () => {
+            await saveToStorage();
+            renderProducts();
+            updatePreview();
+        })();
     }
 }
 
@@ -555,7 +557,7 @@ function updatePreview() {
                             <div style="display: grid; grid-template-columns: 1fr 1fr 3fr 1fr; gap: 6px; align-items: center; height: 15.2mm;">
                                 <div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px; display: flex; align-items: center; justify-content: center; padding: 3px; overflow: hidden; height: 100%;">
                                     ${product.image 
-                                        ? `<img src="${product.image}" alt="${product.code}" style="max-height: 100%; max-width: 100%; object-fit: contain;" crossorigin="anonymous" referrerpolicy="no-referrer" onerror="this.style.display='none'; this.parentElement.innerHTML='<span style=\\\"color: #ccc; font-size: 8px;\\\">Erro</span>'">`
+                                        ? `<img src="${product.image}" alt="${product.code}" style="max-height: 100%; max-width: 100%; object-fit: contain;" crossorigin="anonymous" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
                                         : '<span style="color: #ccc; font-size: 8px;">Sem img</span>'
                                     }
                                 </div>
@@ -565,7 +567,7 @@ function updatePreview() {
                                 <div style="background: white; border: 1px solid #ddd; border-radius: 3px; padding: 4px; font-weight: 600; color: #002F5D; font-size: 9px; text-transform: uppercase; height: 100%; display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                                     ${product.description}
                                 </div>
-                                <div style="background: #002F5D; color: white; border: 1px solid #002F5D; border-radius: 3px; padding: 3px; text-align: center; font-weight: 700; font-size: 10px; height: 100%; display: flex; align-items: center; justify-content: center;">
+                                <div style="background: #002F5D; color: white; border: 1px solid #002F5D; border-radius: 3px; padding: 3px; text-align: center; font-weight: 700; font-size: 10px; height: 100%; display: flex; align-items: center; justify-content: center; print-color-adjust: exact; -webkit-print-color-adjust: exact;">
                                     R$ ${priceFormatted}
                                 </div>
                             </div>
