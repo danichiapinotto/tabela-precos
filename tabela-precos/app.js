@@ -1,3 +1,11 @@
+// ===== CONFIGURAÇÃO SUPABASE =====
+const SUPABASE_URL = 'https://gphrtytgcbpjpsvsaehj.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwaHJ0eXRnY2JwanBzdnNhZWhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyNzUxNTcsImV4cCI6MjA3OTg1MTE1N30.-VTZvuV4xREubHQxArPFRKRhpf_CDYeTHyPntl7-LJI';
+
+// Inicializar cliente Supabase
+const { createClient } = window.supabase;
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 // Estado da aplicação
 let products = [];
 let categories = ['Ferramentas', 'Capacitores', 'Cortina de Ar', 'Suportes'];
@@ -42,21 +50,88 @@ function debugImages() {
 window.debugImages = debugImages; // Expor no console global
 window.handleImageError = handleImageError; // Expor para uso no HTML
 
-// ===== STORAGE =====
-function saveToStorage() {
-    localStorage.setItem('gallant_products', JSON.stringify(products));
-    localStorage.setItem('gallant_categories', JSON.stringify(categories));
+// ===== STORAGE COM SUPABASE =====
+async function saveToStorage() {
+    try {
+        console.log('💾 Salvando produtos no Supabase...');
+        
+        // Limpar tabela antes de salvar
+        await supabase.from('products').delete().neq('id', 0);
+        
+        // Inserir todos os produtos
+        const { data, error } = await supabase.from('products').insert(
+            products.map(p => ({
+                code: p.code,
+                description: p.description,
+                category: p.category,
+                price: parseFloat(p.price),
+                image: p.image || null
+            }))
+        );
+        
+        if (error) {
+            console.error('❌ Erro ao salvar:', error.message);
+            throw error;
+        }
+        
+        console.log('✅ Produtos salvos no Supabase!');
+        
+        // Também salvar categorias no localStorage como fallback
+        localStorage.setItem('gallant_categories', JSON.stringify(categories));
+    } catch (error) {
+        console.error('Erro ao salvar:', error);
+        alert('Erro ao salvar produtos: ' + error.message);
+    }
 }
 
-function loadFromStorage() {
-    const stored = localStorage.getItem('gallant_products');
-    const storedCategories = localStorage.getItem('gallant_categories');
-    
-    if (stored) {
-        products = JSON.parse(stored);
-    }
-    if (storedCategories) {
-        categories = JSON.parse(storedCategories);
+async function loadFromStorage() {
+    try {
+        console.log('📥 Carregando produtos do Supabase...');
+        
+        const { data, error } = await supabase.from('products').select('*');
+        
+        if (error) {
+            throw error;
+        }
+        
+        if (data && data.length > 0) {
+            products = data.map(p => ({
+                id: p.id,
+                code: p.code,
+                description: p.description,
+                category: p.category,
+                price: p.price.toString(),
+                image: p.image || ''
+            }));
+            
+            // Extrair categorias dos produtos
+            const cats = [...new Set(products.map(p => p.category))];
+            categories = [...new Set([...categories, ...cats])];
+            
+            console.log(`✅ ${products.length} produtos carregados do Supabase!`);
+        } else {
+            console.log('ℹ️ Nenhum produto no Supabase ainda');
+            // Tentar carregar do localStorage como fallback
+            const stored = localStorage.getItem('gallant_products');
+            if (stored) {
+                products = JSON.parse(stored);
+                console.log('📥 Produtos carregados do localStorage (fallback)');
+            }
+        }
+        
+        // Carregar categorias do localStorage
+        const storedCategories = localStorage.getItem('gallant_categories');
+        if (storedCategories) {
+            categories = JSON.parse(storedCategories);
+        }
+    } catch (error) {
+        console.error('❌ Erro ao carregar:', error);
+        // Fallback para localStorage
+        const stored = localStorage.getItem('gallant_products');
+        if (stored) {
+            products = JSON.parse(stored);
+            console.log('📥 Fallback: Produtos carregados do localStorage');
+        }
     }
 }
 
@@ -342,6 +417,8 @@ function deleteCategory(idx) {
 
 function updateCategoriesSelect() {
     const select = document.getElementById('productCategory');
+    if (!select) return; // Se não existir, não faz nada
+    
     const currentValue = select.value;
     
     select.innerHTML = '<option value="">Selecione uma categoria</option>' +
@@ -353,6 +430,8 @@ function updateCategoriesSelect() {
 // ===== PREVIEW & PDF =====
 function updateCategoryFilter() {
     const select = document.getElementById('categoryFilter');
+    if (!select) return; // Se não existir, não faz nada
+    
     const cats = [...new Set(products.map(p => p.category))];
     
     select.innerHTML = '<option value="">Todas as Categorias</option>' +
@@ -801,11 +880,11 @@ function clearAllData() {
 }
 
 // ===== EVENT LISTENERS (Material UI) =====
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     console.log('DOMContentLoaded disparado');
     
     // INICIALIZAR DADOS
-    loadFromStorage();
+    await loadFromStorage();
     updateCategoriesSelect();
     renderProducts();
     renderCategories();
@@ -915,3 +994,4 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 });
+
