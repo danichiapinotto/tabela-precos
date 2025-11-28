@@ -555,6 +555,9 @@ function updatePreview() {
         return;
     }
     
+    // Detectar se é mobile
+    const isMobile = window.innerWidth < 768;
+    
     // Agrupar por categoria
     const grouped = {};
     products.forEach(product => {
@@ -573,62 +576,60 @@ function updatePreview() {
         }
         
         pages.forEach((pageProducts, pageIndex) => {
-            html += `
-                <div style="width: 297mm; height: 210mm; background: white; padding: 18px; display: flex; flex-direction: column; border: 2px solid #e0e0e0; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); position: relative; page-break-after: always;">
-                    <!-- Header com logo -->
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-                        <img src="https://res.cloudinary.com/djoixkakr/image/upload/v1759174088/logoGallant_udaeoi.png" alt="Gallant" style="height: 48px; object-fit: contain;">
-                        <div style="text-align: right;">
-                            <div style="color: #002F5D; font-size: 9px; font-weight: 600; text-transform: uppercase; margin-bottom: 2px;">Tabela de Vendas</div>
-                            <h1 style="color: #002F5D; font-size: 20px; font-weight: 700; text-transform: uppercase; margin: 0; line-height: 1.1;">${category.toUpperCase()}</h1>
-                        </div>
-                    </div>
-
-                    <!-- Header da tabela -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 3fr 1fr; gap: 6px; padding: 0 6px 6px 6px; border-bottom: 2px solid #002F5D; margin-bottom: 8px;">
-                        <div style="font-weight: 700; color: #002F5D; font-size: 9px; text-align: center; text-transform: uppercase;">Produto</div>
-                        <div style="font-weight: 700; color: #002F5D; font-size: 9px; text-align: center; text-transform: uppercase;">Código</div>
-                        <div style="font-weight: 700; color: #002F5D; font-size: 9px; text-align: left; text-transform: uppercase;">Descrição</div>
-                        <div style="font-weight: 700; color: #002F5D; font-size: 9px; text-align: center; text-transform: uppercase;">Preço</div>
-                    </div>
-
-                    <!-- Produtos -->
-                    <div style="display: flex; flex-direction: column; gap: 4px;">
-                        ${pageProducts.map(product => {
-                            // Formatar preço com vírgula
-                            const priceFormatted = parseFloat(product.price).toLocaleString('pt-BR', { 
-                                minimumFractionDigits: 2, 
-                                maximumFractionDigits: 2 
-                            });
-                            
-                            return `
-                            <div style="display: grid; grid-template-columns: 1fr 1fr 3fr 1fr; gap: 6px; align-items: center; height: 15.2mm;">
-                                <div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px; display: flex; align-items: center; justify-content: center; padding: 3px; overflow: hidden; height: 100%;">
-                                    ${product.image 
-                                        ? `<img src="${product.image}" alt="${product.code}" style="max-height: 100%; max-width: 100%; object-fit: contain;" crossorigin="anonymous" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
-                                        : '<span style="color: #ccc; font-size: 8px;">Sem img</span>'
-                                    }
-                                </div>
-                                <div style="background: #f0f0f0; border: 1px solid #ddd; border-radius: 3px; padding: 3px; text-align: center; font-weight: 700; color: #002F5D; font-size: 9px; height: 100%; display: flex; align-items: center; justify-content: center;">
-                                    ${product.code}
-                                </div>
-                                <div style="background: white; border: 1px solid #ddd; border-radius: 3px; padding: 4px; font-weight: 600; color: #002F5D; font-size: 9px; text-transform: uppercase; height: 100%; display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                    ${product.description}
-                                </div>
-                                <div style="background: #002F5D; color: white; border: 1px solid #002F5D; border-radius: 3px; padding: 3px; text-align: center; font-weight: 700; font-size: 10px; height: 100%; display: flex; align-items: center; justify-content: center; print-color-adjust: exact; -webkit-print-color-adjust: exact;">
-                                    R$ ${priceFormatted}
-                                </div>
-                            </div>
-                        `}).join('')}
-                    </div>
-
-                    <!-- Rodapé -->
-                    <div style="border-top: 1px solid #ddd; padding-top: 10px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: #999;">
-                        <span>Documento gerado automaticamente via CMS Gallant</span>
-                        <span>Página ${pageIndex + 1}</span>
-                    </div>
-                </div>
-            `;
+            if (isMobile) {
+                // Layout para mobile - simplificado
+                html += '<div style="background: white; width: 100%; padding: 12px; border: 1px solid #e0e0e0; margin-bottom: 12px;">';
+                html += '<h3 style="color: #002F5D; font-size: 16px; margin-bottom: 8px; text-transform: uppercase;">' + category.toUpperCase() + '</h3>';
+                
+                pageProducts.forEach(product => {
+                    const priceFormatted = parseFloat(product.price).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    html += '<div style="border: 1px solid #ddd; border-radius: 4px; padding: 8px; margin-bottom: 8px;">';
+                    html += '<div style="font-weight: 700; color: #002F5D; font-size: 12px; margin-bottom: 4px;">' + product.code + ' - ' + product.description + '</div>';
+                    html += '<div style="text-align: right; color: #002F5D; font-weight: 700; font-size: 13px;">R$ ' + priceFormatted + '</div>';
+                    html += '</div>';
+                });
+                html += '</div>';
+            } else {
+                // Layout para desktop - mantém estrutura original
+                const pageStyle = 'width: 297mm; height: 210mm; background: white; padding: 18px; display: flex; flex-direction: column; border: 2px solid #e0e0e0; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); position: relative; page-break-after: always;';
+                
+                html += '<div style="' + pageStyle + '">';
+                html += '<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">';
+                html += '<img src="https://res.cloudinary.com/djoixkakr/image/upload/v1759174088/logoGallant_udaeoi.png" alt="Gallant" style="height: 48px; object-fit: contain;">';
+                html += '<div style="text-align: right;">';
+                html += '<div style="color: #002F5D; font-size: 9px; font-weight: 600; text-transform: uppercase; margin-bottom: 2px;">Tabela de Vendas</div>';
+                html += '<h1 style="color: #002F5D; font-size: 20px; font-weight: 700; text-transform: uppercase; margin: 0; line-height: 1.1;">' + category.toUpperCase() + '</h1>';
+                html += '</div></div>';
+                
+                html += '<div style="display: grid; grid-template-columns: 1fr 1fr 3fr 1fr; gap: 6px; padding: 0 6px 6px 6px; border-bottom: 2px solid #002F5D; margin-bottom: 8px;">';
+                html += '<div style="font-weight: 700; color: #002F5D; font-size: 9px; text-align: center; text-transform: uppercase;">Produto</div>';
+                html += '<div style="font-weight: 700; color: #002F5D; font-size: 9px; text-align: center; text-transform: uppercase;">Código</div>';
+                html += '<div style="font-weight: 700; color: #002F5D; font-size: 9px; text-align: left; text-transform: uppercase;">Descrição</div>';
+                html += '<div style="font-weight: 700; color: #002F5D; font-size: 9px; text-align: center; text-transform: uppercase;">Preço</div>';
+                html += '</div>';
+                
+                html += '<div style="display: flex; flex-direction: column; gap: 4px;">';
+                
+                pageProducts.forEach(product => {
+                    const priceFormatted = parseFloat(product.price).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    const imgHtml = product.image 
+                        ? '<img src="' + product.image + '" alt="' + product.code + '" style="max-height: 100%; max-width: 100%; object-fit: contain;" crossorigin="anonymous" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">'
+                        : '<span style="color: #ccc; font-size: 8px;">Sem img</span>';
+                    
+                    html += '<div style="display: grid; grid-template-columns: 1fr 1fr 3fr 1fr; gap: 6px; align-items: center; height: 15.2mm;">';
+                    html += '<div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px; display: flex; align-items: center; justify-content: center; padding: 3px; overflow: hidden; height: 100%;">' + imgHtml + '</div>';
+                    html += '<div style="background: #f0f0f0; border: 1px solid #ddd; border-radius: 3px; padding: 3px; text-align: center; font-weight: 700; color: #002F5D; font-size: 9px; height: 100%; display: flex; align-items: center; justify-content: center;">' + product.code + '</div>';
+                    html += '<div style="background: white; border: 1px solid #ddd; border-radius: 3px; padding: 4px; font-weight: 600; color: #002F5D; font-size: 9px; text-transform: uppercase; height: 100%; display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + product.description + '</div>';
+                    html += '<div style="background: #002F5D; color: white; border: 1px solid #002F5D; border-radius: 3px; padding: 3px; text-align: center; font-weight: 700; font-size: 10px; height: 100%; display: flex; align-items: center; justify-content: center; print-color-adjust: exact; -webkit-print-color-adjust: exact;">R$ ' + priceFormatted + '</div>';
+                    html += '</div>';
+                });
+                
+                html += '</div>';
+                html += '<div style="border-top: 1px solid #ddd; padding-top: 10px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: #999;">';
+                html += '<span>Documento gerado automaticamente via CMS Gallant</span>';
+                html += '<span>Página ' + (pageIndex + 1) + '</span>';
+                html += '</div></div>';
+            }
         });
     });
     
