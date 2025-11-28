@@ -3,8 +3,19 @@ const SUPABASE_URL = 'https://gphrtytgcbpjpsvsaehj.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwaHJ0eXRnY2JwanBzdnNhZWhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyNzUxNTcsImV4cCI6MjA3OTg1MTE1N30.-VTZvuV4xREubHQxArPFRKRhpf_CDYeTHyPntl7-LJI';
 
 // Inicializar cliente Supabase
-const { createClient } = window.supabase;
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let supabase = null;
+try {
+    const { createClient } = window.supabase;
+    if (createClient) {
+        supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('✅ Cliente Supabase inicializado com sucesso');
+    } else {
+        console.warn('⚠️ Biblioteca Supabase não carregada. Usando localStorage.');
+    }
+} catch (error) {
+    console.error('❌ Erro ao inicializar Supabase:', error);
+    supabase = null;
+}
 
 // Estado da aplicação
 let products = [];
@@ -53,7 +64,20 @@ window.handleImageError = handleImageError; // Expor para uso no HTML
 // ===== STORAGE COM SUPABASE =====
 async function saveToStorage() {
     try {
-        console.log('💾 Salvando produtos no Supabase...');
+        console.log('💾 Salvando produtos...');
+        
+        // Sempre salvar no localStorage como backup
+        localStorage.setItem('gallant_products', JSON.stringify(products));
+        localStorage.setItem('gallant_categories', JSON.stringify(categories));
+        console.log('✅ Salvos no localStorage');
+        
+        // Se Supabase não está disponível, só usar localStorage
+        if (!supabase) {
+            console.warn('⚠️ Supabase não disponível, salvos apenas em localStorage');
+            return;
+        }
+        
+        console.log('💾 Salvando também no Supabase...');
         
         // Limpar tabela antes de salvar
         await supabase.from('products').delete().neq('id', 0);
@@ -88,9 +112,21 @@ async function loadFromStorage() {
     try {
         console.log('📥 Carregando produtos do Supabase...');
         
+        // Se Supabase não está disponível, usar localStorage
+        if (!supabase) {
+            console.warn('⚠️ Supabase não disponível, usando localStorage');
+            const stored = localStorage.getItem('gallant_products');
+            if (stored) {
+                products = JSON.parse(stored);
+                console.log('📥 Produtos carregados do localStorage');
+            }
+            return;
+        }
+        
         const { data, error } = await supabase.from('products').select('*');
         
         if (error) {
+            console.error('❌ Erro do Supabase:', error.message);
             throw error;
         }
         
@@ -125,7 +161,7 @@ async function loadFromStorage() {
             categories = JSON.parse(storedCategories);
         }
     } catch (error) {
-        console.error('❌ Erro ao carregar:', error);
+        console.error('❌ Erro ao carregar do Supabase:', error.message || error);
         // Fallback para localStorage
         const stored = localStorage.getItem('gallant_products');
         if (stored) {
