@@ -65,6 +65,7 @@ window.handleImageError = handleImageError; // Expor para uso no HTML
 async function saveToStorage() {
     try {
         console.log('💾 Salvando produtos...');
+        console.log('Total de produtos para salvar:', products.length);
         
         // Sempre salvar no localStorage como backup
         localStorage.setItem('gallant_products', JSON.stringify(products));
@@ -77,34 +78,50 @@ async function saveToStorage() {
             return;
         }
         
-        console.log('💾 Salvando também no Supabase...');
+        console.log('💾 Tentando salvar no Supabase...');
         
         // Limpar tabela antes de salvar
-        await supabase.from('products').delete().neq('id', 0);
+        console.log('Deletando dados antigos do Supabase...');
+        const { error: deleteError } = await supabase.from('products').delete().neq('id', 0);
+        if (deleteError) {
+            console.warn('⚠️ Erro ao deletar dados antigos:', deleteError);
+        } else {
+            console.log('✅ Dados antigos deletados');
+        }
+        
+        // Se não há produtos, só deletar
+        if (products.length === 0) {
+            console.log('ℹ️ Nenhum produto para salvar');
+            return;
+        }
         
         // Inserir todos os produtos
-        const { data, error } = await supabase.from('products').insert(
-            products.map(p => ({
-                code: p.code,
-                description: p.description,
-                category: p.category,
-                price: parseFloat(p.price),
-                image: p.image || null
-            }))
-        );
+        const productsToInsert = products.map(p => ({
+            code: p.code,
+            description: p.description,
+            category: p.category,
+            price: parseFloat(p.price),
+            image: p.image || null
+        }));
+        
+        console.log('Inserindo produtos:', productsToInsert.length);
+        
+        const { data, error } = await supabase
+            .from('products')
+            .insert(productsToInsert)
+            .select();
         
         if (error) {
-            console.error('❌ Erro ao salvar:', error.message);
+            console.error('❌ Erro ao salvar no Supabase:', error.message);
+            console.error('Detalhes:', error);
             throw error;
         }
         
-        console.log('✅ Produtos salvos no Supabase!');
+        console.log('✅ Produtos salvos no Supabase!', data);
         
-        // Também salvar categorias no localStorage como fallback
-        localStorage.setItem('gallant_categories', JSON.stringify(categories));
     } catch (error) {
-        console.error('Erro ao salvar:', error);
-        alert('Erro ao salvar produtos: ' + error.message);
+        console.error('❌ Erro ao salvar:', error.message || error);
+        // Não lança erro, apenas continua com localStorage
     }
 }
 
