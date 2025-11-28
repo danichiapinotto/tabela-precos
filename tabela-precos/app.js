@@ -740,7 +740,7 @@ function importCSV(event) {
     if (!file) return;
     
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
         try {
             const csv = e.target.result;
             const lines = csv.split('\n');
@@ -914,7 +914,7 @@ function importCSV(event) {
                 categories = Array.from(newCategories);
             }
             
-            saveToStorage();
+            await saveToStorage();
             renderProducts();
             renderCategories();
             updateCategoriesSelect();
