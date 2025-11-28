@@ -103,23 +103,14 @@ async function saveToStorage() {
         
         console.log(`📝 Preparando ${productsToInsert.length} produtos para inserção...`);
         
-        // Estratégia: Deletar todos e reinserir
-        console.log('🗑️ Limpando dados antigos...');
-        const { error: delError } = await supabase.from('products').delete().neq('code', '');
-        if (delError) {
-            console.error('⚠️ Erro ao deletar:', delError.message);
-        } else {
-            console.log('✅ Tabela limpa com sucesso');
-        }
+        // Estratégia: UPSERT (inserir ou atualizar se código existe)
+        console.log('🔄 Usando UPSERT para produtos (inserir/atualizar)...');
         
-        // Pequeno delay para garantir deleção
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Inserir novos produtos
-        console.log('📤 Inserindo produtos...');
+        // Sincronizar produtos com Supabase (inserir novos ou atualizar existentes)
+        console.log('📤 Sincronizando produtos com Supabase...');
         const { data, error } = await supabase
             .from('products')
-            .insert(productsToInsert)
+            .upsert(productsToInsert, { onConflict: 'code' })
             .select('*');
         
         if (error) {
@@ -366,6 +357,7 @@ function editProduct(id) {
 function deleteProduct(id) {
     if (confirm('Tem certeza que deseja deletar este produto?')) {
         products = products.filter(p => p.id !== id);
+        console.log('🗑️ Deletando produto, chamando saveToStorage()...');
         saveToStorage();
         renderProducts();
         updatePreview();
