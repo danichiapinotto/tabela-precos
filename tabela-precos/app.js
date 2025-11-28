@@ -80,22 +80,19 @@ async function saveToStorage() {
         
         console.log('💾 Tentando salvar no Supabase...');
         
-        // Limpar tabela antes de salvar
-        console.log('Deletando dados antigos do Supabase...');
-        const { error: deleteError } = await supabase.from('products').delete().neq('id', 0);
-        if (deleteError) {
-            console.warn('⚠️ Erro ao deletar dados antigos:', deleteError);
-        } else {
-            console.log('✅ Dados antigos deletados');
-        }
-        
-        // Se não há produtos, só deletar
+        // Se não há produtos, limpar a tabela
         if (products.length === 0) {
-            console.log('ℹ️ Nenhum produto para salvar');
+            console.log('ℹ️ Nenhum produto para salvar, limpando tabela...');
+            const { error: deleteError } = await supabase.from('products').delete().neq('code', '');
+            if (deleteError) {
+                console.warn('⚠️ Erro ao limpar:', deleteError.message);
+            } else {
+                console.log('✅ Tabela limpa');
+            }
             return;
         }
         
-        // Inserir todos os produtos
+        // Preparar dados para inserção
         const productsToInsert = products.map(p => ({
             code: p.code,
             description: p.description,
@@ -104,24 +101,41 @@ async function saveToStorage() {
             image: p.image || null
         }));
         
-        console.log('Inserindo produtos:', productsToInsert.length);
+        console.log(`📝 Preparando ${productsToInsert.length} produtos para inserção...`);
         
+        // Estratégia: Deletar todos e reinserir
+        console.log('🗑️ Limpando dados antigos...');
+        const { error: delError } = await supabase.from('products').delete().neq('code', '');
+        if (delError) {
+            console.error('⚠️ Erro ao deletar:', delError.message);
+        } else {
+            console.log('✅ Tabela limpa com sucesso');
+        }
+        
+        // Pequeno delay para garantir deleção
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Inserir novos produtos
+        console.log('📤 Inserindo produtos...');
         const { data, error } = await supabase
             .from('products')
             .insert(productsToInsert)
-            .select();
+            .select('*');
         
         if (error) {
-            console.error('❌ Erro ao salvar no Supabase:', error.message);
-            console.error('Detalhes:', error);
+            console.error('❌ ERRO ao inserir:', error.code, error.message);
+            console.error('📋 Detalhes completos:', JSON.stringify(error, null, 2));
             throw error;
         }
         
-        console.log('✅ Produtos salvos no Supabase!', data);
+        if (data) {
+            console.log(`✅ ${data.length} produtos salvos no Supabase!`);
+            console.log('📊 Primeiros produtos:', data.slice(0, 2));
+        }
         
     } catch (error) {
-        console.error('❌ Erro ao salvar:', error.message || error);
-        // Não lança erro, apenas continua com localStorage
+        console.error('❌ ERRO FINAL ao salvar:', error.message || error);
+        console.error('Stack:', error.stack);
     }
 }
 
