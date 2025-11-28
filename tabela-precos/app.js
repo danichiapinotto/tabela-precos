@@ -94,6 +94,7 @@ async function saveToStorage() {
         
         // Preparar dados para inserção
         const productsToInsert = products.map(p => ({
+            ...(p.id && Number(p.id) > 0 ? { id: Number(p.id) } : {}),
             code: p.code,
             description: p.description,
             category: p.category,
@@ -121,6 +122,15 @@ async function saveToStorage() {
         
         if (data) {
             console.log(`✅ ${data.length} produtos salvos no Supabase!`);
+            // Atualizar IDs dos produtos localmente (para novos produtos que ganharam ID do Supabase)
+            products = data.map(p => ({
+                id: Number(p.id),
+                code: p.code,
+                description: p.description,
+                category: p.category,
+                price: p.price.toString(),
+                image: p.image || ''
+            }));
             console.log('📊 Primeiros produtos:', data.slice(0, 2));
         }
         
@@ -154,7 +164,7 @@ async function loadFromStorage() {
         
         if (data && data.length > 0) {
             products = data.map(p => ({
-                id: p.id,
+                id: Number(p.id),
                 code: p.code,
                 description: p.description,
                 category: p.category,
@@ -299,10 +309,11 @@ function closeProductModal() {
 }
 
 function editProduct(id) {
-    console.log('Editando produto:', id);
-    const product = products.find(p => p.id === id);
+    const numId = Number(id);
+    console.log('✏️ Editando produto ID:', numId);
+    const product = products.find(p => Number(p.id) === numId);
     if (!product) {
-        console.error('Produto não encontrado:', id);
+        console.error('❌ Produto não encontrado com ID:', numId);
         return;
     }
     
@@ -356,16 +367,17 @@ function editProduct(id) {
 
 function deleteProduct(id) {
     if (confirm('Tem certeza que deseja deletar este produto?')) {
-        console.log('🗑️ Deletando produto ID:', id);
-        const productIndex = products.findIndex(p => p.id === id);
+        const numId = Number(id);
+        console.log('🗑️ Deletando produto ID:', numId);
+        const productIndex = products.findIndex(p => Number(p.id) === numId);
         if (productIndex === -1) {
-            console.error('❌ Produto não encontrado com ID:', id);
+            console.error('❌ Produto não encontrado com ID:', numId);
             return;
         }
         const deletedProduct = products[productIndex];
-        console.log('🗑️ Produto a deletar:', deletedProduct);
+        console.log('🗑️ Produto a deletar:', deletedProduct.code);
         
-        products = products.filter(p => p.id !== id);
+        products = products.filter(p => Number(p.id) !== numId);
         console.log('🗑️ Produtos após filtro:', products.length);
         
         (async () => {
@@ -422,10 +434,11 @@ async function saveProduct() {
         
         if (editingProductId) {
             // Editar
-            console.log('✏️ Modo EDITAR - ID:', editingProductId);
-            const product = products.find(p => p.id === editingProductId);
+            const numEditId = Number(editingProductId);
+            console.log('✏️ Modo EDITAR - ID:', numEditId);
+            const product = products.find(p => Number(p.id) === numEditId);
             if (!product) {
-                console.error('❌ Produto não encontrado com ID:', editingProductId);
+                console.error('❌ Produto não encontrado com ID:', numEditId);
                 return;
             }
             product.code = code;
@@ -444,7 +457,6 @@ async function saveProduct() {
             // Novo produto
             console.log('➕ Modo NOVO PRODUTO');
             products.push({
-                id: Date.now().toString(),
                 code,
                 description,
                 category,
