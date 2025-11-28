@@ -384,7 +384,7 @@ function previewImage(event) {
     document.getElementById('imagePreview').classList.remove('hidden');
 }
 
-function saveProduct() {
+async function saveProduct() {
     console.log('saveProduct chamado');
     const code = document.getElementById('productCode').value.trim();
     const description = document.getElementById('productDescription').value.trim();
@@ -427,7 +427,7 @@ function saveProduct() {
     }
     
     console.log('Produtos após salvar:', products);
-    saveToStorage();
+    await saveToStorage();
     renderProducts();
     updatePreview();
     closeProductModal();
@@ -984,9 +984,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Form submit
     const productForm = document.getElementById('productForm');
     if (productForm) {
-        productForm.addEventListener('submit', (e) => {
+        productForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            saveProduct();
+            await saveProduct();
         });
     }
     
