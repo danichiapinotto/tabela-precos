@@ -356,12 +356,30 @@ function editProduct(id) {
 
 function deleteProduct(id) {
     if (confirm('Tem certeza que deseja deletar este produto?')) {
+        console.log('🗑️ Deletando produto ID:', id);
+        const productIndex = products.findIndex(p => p.id === id);
+        if (productIndex === -1) {
+            console.error('❌ Produto não encontrado com ID:', id);
+            return;
+        }
+        const deletedProduct = products[productIndex];
+        console.log('🗑️ Produto a deletar:', deletedProduct);
+        
         products = products.filter(p => p.id !== id);
-        console.log('🗑️ Deletando produto, chamando saveToStorage()...');
+        console.log('🗑️ Produtos após filtro:', products.length);
+        
         (async () => {
-            await saveToStorage();
-            renderProducts();
-            updatePreview();
+            try {
+                console.log('💾 Chamando saveToStorage() após delete...');
+                await saveToStorage();
+                console.log('✅ saveToStorage() concluído após delete');
+                renderProducts();
+                updatePreview();
+                console.log('✅ deleteProduct concluído com sucesso!');
+            } catch (error) {
+                console.error('❌ ERRO ao deletar:', error);
+                alert('Erro ao deletar produto: ' + error.message);
+            }
         })();
     }
 }
@@ -385,52 +403,70 @@ function previewImage(event) {
 }
 
 async function saveProduct() {
-    console.log('saveProduct chamado');
-    const code = document.getElementById('productCode').value.trim();
-    const description = document.getElementById('productDescription').value.trim();
-    const category = document.getElementById('productCategory').value;
-    const price = document.getElementById('productPrice').value.trim();
-    const previewImg = document.getElementById('previewImg');
-    const imageUrl = previewImg?.src || '';
-    
-    console.log('Dados do produto:', { code, description, category, price, imageUrl });
-    
-    if (!code || !description || !category || !price) {
-        alert('Preencha todos os campos obrigatórios!');
-        return;
-    }
-    
-    if (editingProductId) {
-        // Editar
-        const product = products.find(p => p.id === editingProductId);
-        product.code = code;
-        product.description = description;
-        product.category = category;
-        product.price = price;
-        // Só atualiza imagem se uma nova foi selecionada
-        if (imageUrl && imageUrl !== product.image) {
-            // Se for URL local (blob), não salva. Mantém a URL anterior
-            if (!imageUrl.startsWith('blob:')) {
-                product.image = imageUrl;
-            }
+    try {
+        console.log('💾 saveProduct chamado');
+        const code = document.getElementById('productCode').value.trim();
+        const description = document.getElementById('productDescription').value.trim();
+        const category = document.getElementById('productCategory').value;
+        const price = document.getElementById('productPrice').value.trim();
+        const previewImg = document.getElementById('previewImg');
+        const imageUrl = previewImg?.src || '';
+        
+        console.log('📝 Dados do produto:', { code, description, category, price, imageUrl });
+        
+        if (!code || !description || !category || !price) {
+            console.warn('⚠️ Campos obrigatórios faltando!');
+            alert('Preencha todos os campos obrigatórios!');
+            return;
         }
-    } else {
-        // Novo produto
-        products.push({
-            id: Date.now().toString(),
-            code,
-            description,
-            category,
-            price,
-            image: imageUrl && !imageUrl.startsWith('blob:') ? imageUrl : ''
-        });
+        
+        if (editingProductId) {
+            // Editar
+            console.log('✏️ Modo EDITAR - ID:', editingProductId);
+            const product = products.find(p => p.id === editingProductId);
+            if (!product) {
+                console.error('❌ Produto não encontrado com ID:', editingProductId);
+                return;
+            }
+            product.code = code;
+            product.description = description;
+            product.category = category;
+            product.price = price;
+            // Só atualiza imagem se uma nova foi selecionada
+            if (imageUrl && imageUrl !== product.image) {
+                // Se for URL local (blob), não salva. Mantém a URL anterior
+                if (!imageUrl.startsWith('blob:')) {
+                    product.image = imageUrl;
+                }
+            }
+            console.log('✏️ Produto atualizado:', product);
+        } else {
+            // Novo produto
+            console.log('➕ Modo NOVO PRODUTO');
+            products.push({
+                id: Date.now().toString(),
+                code,
+                description,
+                category,
+                price,
+                image: imageUrl && !imageUrl.startsWith('blob:') ? imageUrl : ''
+            });
+            console.log('➕ Novo produto adicionado');
+        }
+        
+        console.log('📊 Total de produtos:', products.length);
+        console.log('💾 Chamando saveToStorage()...');
+        await saveToStorage();
+        console.log('✅ saveToStorage() concluído com sucesso');
+        
+        renderProducts();
+        updatePreview();
+        closeProductModal();
+        console.log('✅ saveProduct concluído com sucesso!');
+    } catch (error) {
+        console.error('❌ ERRO em saveProduct:', error);
+        alert('Erro ao salvar produto: ' + error.message);
     }
-    
-    console.log('Produtos após salvar:', products);
-    await saveToStorage();
-    renderProducts();
-    updatePreview();
-    closeProductModal();
 }
 
 // ===== CATEGORIAS =====
