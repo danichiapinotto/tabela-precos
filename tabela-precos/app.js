@@ -48,14 +48,20 @@ setTimeout(() => {
     const importMappingBtn = document.getElementById('importMappingBtn');
     const importMappingInput = document.getElementById('importMappingInput');
     const listImagesBtn = document.getElementById('listImagesBtn');
+    const exportImagesCSVBtn = document.getElementById('exportImagesCSVBtn');
     
     console.log('exportMappingBtn encontrado?', !!exportMappingBtn);
     console.log('importMappingBtn encontrado?', !!importMappingBtn);
     console.log('listImagesBtn encontrado?', !!listImagesBtn);
+    console.log('exportImagesCSVBtn encontrado?', !!exportImagesCSVBtn);
     
     if (listImagesBtn) {
         listImagesBtn.addEventListener('click', listUploadedImages);
         console.log('Event listener adicionado ao listImagesBtn');
+    }
+    if (exportImagesCSVBtn) {
+        exportImagesCSVBtn.addEventListener('click', exportUploadedImagesCSV);
+        console.log('Event listener adicionado ao exportImagesCSVBtn');
     }
     if (exportMappingBtn) {
         exportMappingBtn.addEventListener('click', exportImageMapping);
@@ -923,6 +929,54 @@ function exportImageMapping() {
     a.click();
     
     console.log('✅ Planilha de vinculação exportada!');
+}
+
+// Função para exportar CSV com as URLs das imagens uploadadas
+async function exportUploadedImagesCSV() {
+    if (!supabase) {
+        alert('Erro: Supabase não configurado');
+        return;
+    }
+    
+    try {
+        console.log('📸 Listando imagens para exportar...');
+        const { data, error } = await supabase.storage
+            .from('product-images')
+            .list('public', {
+                limit: 100,
+                offset: 0,
+                sortBy: { column: 'name', order: 'desc' }
+            });
+        
+        if (error) throw error;
+        
+        if (!data || data.length === 0) {
+            alert('❌ Nenhuma imagem encontrada para exportar!');
+            return;
+        }
+        
+        // Gerar CSV com as imagens do Supabase
+        let csv = 'código,imagem_url,nome_arquivo\n';
+        data.forEach(file => {
+            const fullUrl = `https://gphrtytgcbpjpsvsaehj.supabase.co/storage/v1/object/public/product-images/public/${file.name}`;
+            // Escapar aspas nas URLs
+            const escapedUrl = fullUrl.replace(/"/g, '""');
+            csv += `"","${escapedUrl}","${file.name}"\n`;
+        });
+        
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `imagens-enviadas-${new Date().getTime()}.csv`;
+        a.click();
+        
+        console.log(`✅ CSV com ${data.length} imagens exportado!`);
+        alert(`✅ CSV exportado com ${data.length} imagens!\n\nAgora você precisa:\n1. Abrir o CSV em Excel\n2. Na coluna "código", preencher com o código de cada produto\n3. Salvar e importar novamente na aba "Imagens"`);
+    } catch (error) {
+        console.error('Erro ao exportar imagens:', error);
+        alert('❌ Erro ao exportar: ' + error.message);
+    }
 }
 
 function importImageMapping(event) {
