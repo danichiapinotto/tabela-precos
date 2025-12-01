@@ -2,6 +2,19 @@
 const SUPABASE_URL = 'https://gphrtytgcbpjpsvsaehj.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwaHJ0eXRnY2JwanBzdnNhZWhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyNzUxNTcsImV4cCI6MjA3OTg1MTE1N30.-VTZvuV4xREubHQxArPFRKRhpf_CDYeTHyPntl7-LJI';
 
+// Adicionar handlers de navegação IMEDIATAMENTE (antes do DOMContentLoaded)
+setTimeout(() => {
+    console.log('Adicionando event listeners aos botões de navegação...');
+    document.querySelectorAll('[data-tab]').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const tabName = this.getAttribute('data-tab');
+            console.log('Clique no botão:', tabName);
+            switchTab(tabName);
+        });
+    });
+}, 100);
+
 // Inicializar cliente Supabase
 let supabase = null;
 try {
@@ -228,6 +241,7 @@ function switchTab(tabName) {
     const titles = {
         products: 'Produtos',
         categories: 'Categorias',
+        images: 'Gerenciar Imagens',
         preview: 'Visualizar Catálogo',
         backup: 'Backup'
     };
@@ -421,8 +435,9 @@ async function saveProduct() {
         const description = document.getElementById('productDescription').value.trim();
         const category = document.getElementById('productCategory').value;
         const price = document.getElementById('productPrice').value.trim();
+        const productImageInput = document.getElementById('productImage');
         const previewImg = document.getElementById('previewImg');
-        const imageUrl = previewImg?.src || '';
+        let imageUrl = previewImg?.src || '';
         
         console.log('📝 Dados do produto:', { code, description, category, price, imageUrl });
         
@@ -430,6 +445,22 @@ async function saveProduct() {
             console.warn('⚠️ Campos obrigatórios faltando!');
             alert('Preencha todos os campos obrigatórios!');
             return;
+        }
+        
+        // Se há arquivo selecionado e não é uma edição com imagem já existente
+        if (productImageInput && productImageInput.files.length > 0 && !imageUrl.startsWith('blob:') && !editingProductId) {
+            try {
+                console.log('📤 Fazendo upload da imagem do produto...');
+                const file = productImageInput.files[0];
+                const uploadedUrls = await uploadImagesToSupabase([file]);
+                if (uploadedUrls.length > 0) {
+                    imageUrl = uploadedUrls[0].url;
+                    console.log('✅ Imagem do produto enviada:', imageUrl);
+                }
+            } catch (error) {
+                console.error('⚠️ Erro ao fazer upload da imagem:', error);
+                alert('Aviso: Erro ao fazer upload da imagem, mas o produto será salvo sem imagem. Você pode adicionar a imagem depois.');
+            }
         }
         
         if (editingProductId) {
@@ -730,6 +761,75 @@ function generatePDF() {
     }
 }
 
+// ===== UPLOAD DE IMAGENS SUPABASE =====
+async function uploadImagesToSupabase(files) {
+    if (!supabase) {
+        alert('❌ Supabase não disponível');
+        return [];
+    }
+    
+    const uploadedUrls = [];
+    const uploadProgress = document.getElementById('uploadProgress');
+    
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Validações
+        if (file.size > MAX_IMAGE_SIZE) {
+            console.warn(`⚠️ ${file.name} muito grande (máximo 2MB)`);
+            continue;
+        }
+        
+        if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type)) {
+            console.warn(`⚠️ ${file.name} não é uma imagem válida`);
+            continue;
+        }
+        
+        try {
+            // Gerar nome único para o arquivo
+            const timestamp = Date.now();
+            const fileName = `public/${timestamp}-${Math.random().toString(36).substr(2, 9)}-${file.name}`;
+            
+            console.log(`📤 Fazendo upload de ${file.name}...`);
+            
+            // Fazer upload
+            const { data, error } = await supabase.storage
+                .from('product-images')
+                .upload(fileName, file);
+            
+            if (error) {
+                console.error(`❌ Erro ao fazer upload de ${file.name}:`, error.message);
+                continue;
+            }
+            
+            // Gerar URL pública
+            const { data: publicUrl } = supabase.storage
+                .from('product-images')
+                .getPublicUrl(fileName);
+            
+            uploadedUrls.push({
+                fileName: file.name,
+                url: publicUrl.publicUrl,
+                uploadedAt: new Date().toLocaleString('pt-BR')
+            });
+            
+            console.log(`✅ ${file.name} enviado com sucesso!`);
+            
+            // Atualizar progresso
+            if (uploadProgress) {
+                uploadProgress.innerHTML += `<div style="padding: 6px; background: #e8f5e9; border-radius: 4px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+                    <span>✅ ${file.name}</span>
+                    <button type="button" class="btn btn-primary" style="padding: 4px 8px; font-size: 12px;" onclick="copyToClipboard('${publicUrl.publicUrl}')">Copiar URL</button>
+                </div>`;
+            }
+        } catch (error) {
+            console.error(`❌ Erro ao processar ${file.name}:`, error);
+        }
+    }
+    
+    return uploadedUrls;
+}
+
 // ===== EXPORT/IMPORT =====
 function downloadJSON() {
     const data = {
@@ -747,35 +847,174 @@ function downloadJSON() {
     a.click();
 }
 
-function importJSON(event) {
+function exportImageMapping() {
+    if (products.length === 0) {
+        alert('Nenhum produto para exportar');
+        return;
+    }
+    
+    // Gerar CSV: código,imagem_url
+    let csv = 'código,imagem_url\n';
+    products.forEach(p => {
+        const imageUrl = p.image ? p.image : ''; // URL pode ser vazia
+        // Escapar aspas nas URLs
+        const escapedUrl = imageUrl.replace(/"/g, '""');
+        csv += `"${p.code}","${escapedUrl}"\n`;
+    });
+    
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vinculacao-imagens-${new Date().getTime()}.csv`;
+    a.click();
+    
+    console.log('✅ Planilha de vinculação exportada!');
+}
+
+function importImageMapping(event) {
     const file = event.target.files[0];
     if (!file) return;
     
     const reader = new FileReader();
     reader.onload = (e) => {
         try {
-            const data = JSON.parse(e.target.result);
+            const csv = e.target.result;
+            const lines = csv.split('\n');
             
-            if (!data.products || !Array.isArray(data.products)) {
-                throw new Error('Arquivo inválido');
+            if (lines.length < 2) {
+                throw new Error('Arquivo CSV vazio');
             }
             
-            products = data.products;
-            categories = data.categories || categories;
+            // Parse CSV com suporte a aspas
+            function parseCSVLine(line) {
+                const result = [];
+                let current = '';
+                let inQuotes = false;
+                
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    const nextChar = line[i + 1];
+                    
+                    if (char === '"') {
+                        if (inQuotes && nextChar === '"') {
+                            current += '"';
+                            i++;
+                        } else {
+                            inQuotes = !inQuotes;
+                        }
+                    } else if (char === ',' && !inQuotes) {
+                        result.push(current.trim());
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                result.push(current.trim());
+                return result;
+            }
             
-            saveToStorage();
-            renderProducts();
-            renderCategories();
-            updateCategoriesSelect();
-            updatePreview();
+            // Pular header
+            let updated = 0;
+            let notFound = 0;
             
-            alert('Dados importados com sucesso!');
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                
+                const values = parseCSVLine(line);
+                if (values.length < 2) continue;
+                
+                const codigo = values[0];
+                const imageUrl = values[1];
+                
+                // Procurar produto pelo código
+                const product = products.find(p => p.code === codigo);
+                if (product) {
+                    product.image = imageUrl;
+                    updated++;
+                    console.log(`✅ Vinculada imagem ao produto ${codigo}`);
+                } else {
+                    notFound++;
+                    console.warn(`⚠️ Produto ${codigo} não encontrado`);
+                }
+            }
+            
+            if (updated > 0) {
+                saveToStorage();
+                renderProducts();
+                updatePreview();
+            }
+            
+            alert(`✅ ${updated} imagens vinculadas!\n⚠️ ${notFound} produtos não encontrados`);
             event.target.value = '';
         } catch (error) {
             alert('Erro ao importar: ' + error.message);
+            console.error('Erro:', error);
         }
     };
     reader.readAsText(file);
+}
+
+// Função auxiliar: copiar URL para clipboard
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        alert('✅ URL copiada para a área de transferência!');
+    }).catch(err => {
+        console.error('Erro ao copiar:', err);
+    });
+}
+
+// Função para listar imagens do Supabase (ajuda a relacionar)
+async function listUploadedImages() {
+    if (!supabase) {
+        alert('Erro: Supabase não configurado');
+        return;
+    }
+    
+    try {
+        console.log('📸 Listando imagens do Supabase...');
+        const { data, error } = await supabase.storage
+            .from('product-images')
+            .list('public', {
+                limit: 100,
+                offset: 0,
+                sortBy: { column: 'name', order: 'desc' }
+            });
+        
+        if (error) throw error;
+        
+        if (!data || data.length === 0) {
+            alert('❌ Nenhuma imagem encontrada. Faça upload primeiro!');
+            return;
+        }
+        
+        // Montar lista HTML com URLs
+        let html = '<div style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 12px;">';
+        html += '<h3>📸 Imagens Enviadas:</h3>';
+        
+        data.forEach(file => {
+            const fullUrl = `https://gphrtytgcbpjpsvsaehj.supabase.co/storage/v1/object/public/product-images/public/${file.name}`;
+            html += `
+            <div style="padding: 8px; background: #f5f5f5; margin-bottom: 8px; border-radius: 3px; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 12px; word-break: break-all;">${file.name}</span>
+                <button type="button" class="btn btn-primary" style="padding: 4px 8px; font-size: 11px; flex-shrink: 0;" onclick="copyToClipboard('${fullUrl}')">Copiar</button>
+            </div>
+            `;
+        });
+        
+        html += '</div>';
+        html += '<p style="font-size: 12px; color: #999; margin-top: 10px;">💡 Clique em "Copiar" para pegar a URL e colar no CSV</p>';
+        
+        // Exibir em um modal ou alert
+        const container = document.getElementById('uploadProgress');
+        if (container) {
+            container.innerHTML = html;
+        }
+    } catch (error) {
+        console.error('Erro ao listar imagens:', error);
+        alert('❌ Erro ao listar imagens: ' + error.message);
+    }
 }
 
 function importCSV(event) {
@@ -992,6 +1231,7 @@ function clearAllData() {
 // ===== EVENT LISTENERS (Material UI) =====
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('DOMContentLoaded disparado');
+    console.log('Botões encontrados:', document.querySelectorAll('[data-tab]').length);
     
     // INICIALIZAR DADOS
     await loadFromStorage();
@@ -1086,6 +1326,44 @@ document.addEventListener('DOMContentLoaded', async () => {
         importCsvInput.addEventListener('change', (e) => importCSV(e));
     }
     
+    // Upload de Imagens
+    const uploadImagesBtn = document.getElementById('uploadImagesBtn');
+    const imageFilesInput = document.getElementById('imageFilesInput');
+    if (uploadImagesBtn && imageFilesInput) {
+        uploadImagesBtn.addEventListener('click', async () => {
+            if (!imageFilesInput.files.length) {
+                alert('Selecione imagens para fazer upload');
+                return;
+            }
+            const uploadProgress = document.getElementById('uploadProgress');
+            uploadProgress.innerHTML = '<p style="color: #2196F3;">⏳ Enviando...</p>';
+            try {
+                const results = await uploadImagesToSupabase(imageFilesInput.files);
+                uploadProgress.innerHTML = `<p style="color: #4caf50;">✅ ${results.length} imagens enviadas com sucesso!</p>`;
+                imageFilesInput.value = '';
+            } catch (error) {
+                uploadProgress.innerHTML = `<p style="color: #f44336;">❌ Erro ao enviar: ${error.message}</p>`;
+            }
+        });
+    }
+    
+    // Export/Import Image Mapping
+    const exportMappingBtn = document.getElementById('exportMappingBtn');
+    const importMappingBtn = document.getElementById('importMappingBtn');
+    const importMappingInput = document.getElementById('importMappingInput');
+    const listImagesBtn = document.getElementById('listImagesBtn');
+    
+    if (listImagesBtn) {
+        listImagesBtn.addEventListener('click', listUploadedImages);
+    }
+    if (exportMappingBtn) {
+        exportMappingBtn.addEventListener('click', exportImageMapping);
+    }
+    if (importMappingBtn && importMappingInput) {
+        importMappingBtn.addEventListener('click', () => importMappingInput.click());
+        importMappingInput.addEventListener('change', importImageMapping);
+    }
+    
     // Enter em novo categoria
     const newCategoryInput = document.getElementById('newCategoryInput');
     if (newCategoryInput) {
@@ -1096,11 +1374,4 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
     
-    // Botões de navegação
-    document.querySelectorAll('[data-tab]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tabName = btn.getAttribute('data-tab');
-            switchTab(tabName);
-        });
-    });
 });
