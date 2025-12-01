@@ -147,6 +147,7 @@
             <nav class="sidebar-nav">
                 <button class="nav-item active" data-tab="products"><span class="material-icons">shopping_bag</span><span>Produtos</span></button>
                 <button class="nav-item" data-tab="categories"><span class="material-icons">label</span><span>Categorias</span></button>
+                <button class="nav-item" data-tab="images"><span class="material-icons">image</span><span>Imagens</span></button>
                 <button class="nav-item" data-tab="preview"><span class="material-icons">visibility</span><span>Visualizar</span></button>
                 <button class="nav-item" data-tab="backup"><span class="material-icons">cloud_download</span><span>Backup</span></button>
             </nav>
@@ -159,9 +160,52 @@
             </div>
             <div class="content-area">
                 <div id="products" class="tab-content active"><div id="productsList" class="products-grid"></div></div>
-                <div id="categories" class="tab-content"><div class="card"><h2 class="card-title"><span class="material-icons">label</span>Categorias</h2><input type="text" id="newCategoryInput" placeholder="Nome da categoria..." class="form-control"><button id="addCategoryBtn" class="btn btn-success" style="margin-top: 12px;">Adicionar</button><div id="categoriesList" class="categories-list" style="margin-top: 20px;"></div></div></div>
+                <div id="categories" class="tab-content">
+                    <div class="card">
+                        <h2 class="card-title"><span class="material-icons">label</span>Categorias</h2>
+                        <input type="text" id="newCategoryInput" placeholder="Nome da categoria..." class="form-control">
+                        <button id="addCategoryBtn" class="btn btn-success" style="margin-top: 12px;">Adicionar</button>
+                        <div id="categoriesList" class="categories-list" style="margin-top: 20px;"></div>
+                    </div>
+                </div>
+                <div id="images" class="tab-content">
+                    <div class="card">
+                        <h2 class="card-title"><span class="material-icons">image</span>Gerenciar Imagens</h2>
+                        <div style="margin-bottom: 20px;">
+                            <label class="form-label">Upload de Imagens em Lote</label>
+                            <input type="file" id="imageFilesInput" multiple accept="image/*" class="form-control" style="margin-bottom: 10px;">
+                            <button id="uploadImagesBtn" class="btn btn-success"><span class="material-icons">upload</span>Fazer Upload</button>
+                            <div id="uploadProgress" style="margin-top: 10px;"></div>
+                        </div>
+                        <div style="border-top: 1px solid #ddd; padding-top: 20px;">
+                            <button id="listImagesBtn" class="btn btn-secondary" style="margin-bottom: 12px;"><span class="material-icons">visibility</span>Ver Imagens Enviadas</button>
+                            <div style="margin-bottom: 12px;">
+                                <button id="exportMappingBtn" class="btn btn-primary"><span class="material-icons">download</span>Exportar Mapeamento</button>
+                                <span style="margin: 0 10px; color: #999;">|</span>
+                                <input type="file" id="importMappingInput" accept=".csv" style="display: none;">
+                                <button id="importMappingBtn" class="btn btn-primary"><span class="material-icons">upload</span>Importar Mapeamento</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div id="preview" class="tab-content"><div id="previewContainer"></div></div>
-                <div id="backup" class="tab-content"><div class="card"><h2 class="card-title"><span class="material-icons">backup</span>Backup e Importação</h2><div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 24px;"><button id="generatePdfBtn" class="btn btn-success"><span class="material-icons">picture_as_pdf</span>Gerar PDF</button><button id="downloadBackupBtn" class="btn btn-success"><span class="material-icons">download</span>Exportar JSON</button><div><input type="file" id="importBackupInput" accept=".json" class="form-control" style="margin-bottom: 12px;"><button id="importBackupBtn" class="btn btn-primary"><span class="material-icons">upload</span>Importar JSON</button></div><div><input type="file" id="importCsvInput" accept=".csv" class="form-control" style="margin-bottom: 12px;"><button id="importCsvBtn" class="btn btn-primary"><span class="material-icons">upload</span>Importar CSV</button></div></div></div></div>
+                <div id="backup" class="tab-content">
+                    <div class="card">
+                        <h2 class="card-title"><span class="material-icons">backup</span>Backup e Importação</h2>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 24px;">
+                            <button id="generatePdfBtn" class="btn btn-success"><span class="material-icons">picture_as_pdf</span>Gerar PDF</button>
+                            <button id="downloadBackupBtn" class="btn btn-success"><span class="material-icons">download</span>Exportar JSON</button>
+                            <div>
+                                <input type="file" id="importBackupInput" accept=".json" class="form-control" style="margin-bottom: 12px;">
+                                <button id="importBackupBtn" class="btn btn-primary"><span class="material-icons">upload</span>Importar JSON</button>
+                            </div>
+                            <div>
+                                <input type="file" id="importCsvInput" accept=".csv" class="form-control" style="margin-bottom: 12px;">
+                                <button id="importCsvBtn" class="btn btn-primary"><span class="material-icons">upload</span>Importar CSV</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
