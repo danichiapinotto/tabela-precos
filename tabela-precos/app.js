@@ -13,6 +13,59 @@ setTimeout(() => {
             switchTab(tabName);
         });
     });
+    
+    // Upload de Imagens - AQUI TAMBÉM
+    const uploadImagesBtn = document.getElementById('uploadImagesBtn');
+    const imageFilesInput = document.getElementById('imageFilesInput');
+    console.log('uploadImagesBtn encontrado?', !!uploadImagesBtn);
+    console.log('imageFilesInput encontrado?', !!imageFilesInput);
+    
+    if (uploadImagesBtn && imageFilesInput) {
+        uploadImagesBtn.addEventListener('click', async () => {
+            console.log('Clique em uploadImagesBtn');
+            if (!imageFilesInput.files.length) {
+                alert('Selecione imagens para fazer upload');
+                return;
+            }
+            console.log('Iniciando upload de', imageFilesInput.files.length, 'imagens');
+            const uploadProgress = document.getElementById('uploadProgress');
+            uploadProgress.innerHTML = '<p style="color: #2196F3;">⏳ Enviando...</p>';
+            try {
+                const results = await uploadImagesToSupabase(imageFilesInput.files);
+                console.log('Upload concluído:', results.length, 'imagens');
+                uploadProgress.innerHTML = `<p style="color: #4caf50;">✅ ${results.length} imagens enviadas com sucesso!</p>`;
+                imageFilesInput.value = '';
+            } catch (error) {
+                console.error('Erro no upload:', error);
+                uploadProgress.innerHTML = `<p style="color: #f44336;">❌ Erro ao enviar: ${error.message}</p>`;
+            }
+        });
+        console.log('Event listener adicionado ao uploadImagesBtn');
+    }
+    
+    // Export/Import Image Mapping - AQUI TAMBÉM
+    const exportMappingBtn = document.getElementById('exportMappingBtn');
+    const importMappingBtn = document.getElementById('importMappingBtn');
+    const importMappingInput = document.getElementById('importMappingInput');
+    const listImagesBtn = document.getElementById('listImagesBtn');
+    
+    console.log('exportMappingBtn encontrado?', !!exportMappingBtn);
+    console.log('importMappingBtn encontrado?', !!importMappingBtn);
+    console.log('listImagesBtn encontrado?', !!listImagesBtn);
+    
+    if (listImagesBtn) {
+        listImagesBtn.addEventListener('click', listUploadedImages);
+        console.log('Event listener adicionado ao listImagesBtn');
+    }
+    if (exportMappingBtn) {
+        exportMappingBtn.addEventListener('click', exportImageMapping);
+        console.log('Event listener adicionado ao exportMappingBtn');
+    }
+    if (importMappingBtn && importMappingInput) {
+        importMappingBtn.addEventListener('click', () => importMappingInput.click());
+        importMappingInput.addEventListener('change', importImageMapping);
+        console.log('Event listeners adicionados ao importMappingBtn');
+    }
 }, 100);
 
 // Inicializar cliente Supabase
@@ -1324,54 +1377,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (importCsvBtn && importCsvInput) {
         importCsvBtn.addEventListener('click', () => importCsvInput.click());
         importCsvInput.addEventListener('change', (e) => importCSV(e));
-    }
-    
-    // Upload de Imagens
-    const uploadImagesBtn = document.getElementById('uploadImagesBtn');
-    const imageFilesInput = document.getElementById('imageFilesInput');
-    if (uploadImagesBtn && imageFilesInput) {
-        uploadImagesBtn.addEventListener('click', async () => {
-            if (!imageFilesInput.files.length) {
-                alert('Selecione imagens para fazer upload');
-                return;
-            }
-            const uploadProgress = document.getElementById('uploadProgress');
-            uploadProgress.innerHTML = '<p style="color: #2196F3;">⏳ Enviando...</p>';
-            try {
-                const results = await uploadImagesToSupabase(imageFilesInput.files);
-                uploadProgress.innerHTML = `<p style="color: #4caf50;">✅ ${results.length} imagens enviadas com sucesso!</p>`;
-                imageFilesInput.value = '';
-            } catch (error) {
-                uploadProgress.innerHTML = `<p style="color: #f44336;">❌ Erro ao enviar: ${error.message}</p>`;
-            }
-        });
-    }
-    
-    // Export/Import Image Mapping
-    const exportMappingBtn = document.getElementById('exportMappingBtn');
-    const importMappingBtn = document.getElementById('importMappingBtn');
-    const importMappingInput = document.getElementById('importMappingInput');
-    const listImagesBtn = document.getElementById('listImagesBtn');
-    
-    if (listImagesBtn) {
-        listImagesBtn.addEventListener('click', listUploadedImages);
-    }
-    if (exportMappingBtn) {
-        exportMappingBtn.addEventListener('click', exportImageMapping);
-    }
-    if (importMappingBtn && importMappingInput) {
-        importMappingBtn.addEventListener('click', () => importMappingInput.click());
-        importMappingInput.addEventListener('change', importImageMapping);
-    }
-    
-    // Enter em novo categoria
-    const newCategoryInput = document.getElementById('newCategoryInput');
-    if (newCategoryInput) {
-        newCategoryInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                addCategory();
-            }
-        });
     }
     
 });
