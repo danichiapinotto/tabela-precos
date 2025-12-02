@@ -139,10 +139,10 @@ async function saveToStorage() {
         console.log('💾 Salvando produtos...');
         console.log('Total de produtos para salvar:', products.length);
         
-        // Sempre salvar no localStorage como backup
+        // SEMPRE salvar no localStorage PRIMEIRO como backup
         localStorage.setItem('gallant_products', JSON.stringify(products));
         localStorage.setItem('gallant_categories', JSON.stringify(categories));
-        console.log('✅ Salvos no localStorage');
+        console.log('✅ Salvos no localStorage com sucesso');
         
         // Se Supabase não está disponível, só usar localStorage
         if (!supabase) {
@@ -189,7 +189,8 @@ async function saveToStorage() {
         if (error) {
             console.error('❌ ERRO ao inserir:', error.code, error.message);
             console.error('📋 Detalhes completos:', JSON.stringify(error, null, 2));
-            throw error;
+            console.warn('⚠️ Dados já foram salvos no localStorage, continuando...');
+            return;
         }
         
         if (data) {
@@ -203,12 +204,15 @@ async function saveToStorage() {
                 price: p.price.toString(),
                 image: p.image || ''
             }));
+            // Atualizar localStorage com IDs retornados do Supabase
+            localStorage.setItem('gallant_products', JSON.stringify(products));
             console.log('📊 Primeiros produtos:', data.slice(0, 2));
         }
         
     } catch (error) {
         console.error('❌ ERRO FINAL ao salvar:', error.message || error);
         console.error('Stack:', error.stack);
+        console.warn('⚠️ Produtos já foram salvos em localStorage como backup');
     }
 }
 
@@ -506,8 +510,8 @@ async function saveProduct() {
             return;
         }
         
-        // Se há arquivo selecionado e não é uma edição com imagem já existente
-        if (productImageInput && productImageInput.files.length > 0 && !imageUrl.startsWith('blob:') && !editingProductId) {
+        // Se há arquivo selecionado, fazer upload
+        if (productImageInput && productImageInput.files.length > 0) {
             try {
                 console.log('📤 Fazendo upload da imagem do produto...');
                 const file = productImageInput.files[0];
@@ -535,12 +539,9 @@ async function saveProduct() {
             product.description = description;
             product.category = category;
             product.price = price;
-            // Só atualiza imagem se uma nova foi selecionada
+            // Atualiza imagem se uma nova foi selecionada
             if (imageUrl && imageUrl !== product.image) {
-                // Se for URL local (blob), não salva. Mantém a URL anterior
-                if (!imageUrl.startsWith('blob:')) {
-                    product.image = imageUrl;
-                }
+                product.image = imageUrl;
             }
             console.log('✏️ Produto atualizado:', product);
         } else {
@@ -551,7 +552,7 @@ async function saveProduct() {
                 description,
                 category,
                 price,
-                image: imageUrl && !imageUrl.startsWith('blob:') ? imageUrl : ''
+                image: imageUrl || ''
             });
             console.log('➕ Novo produto adicionado');
         }
