@@ -15,6 +15,36 @@ window.debugState = function() {
     }
 };
 
+// 🔍 DIAGNÓSTICO ESPECÍFICO: Encontrar produtos por código
+window.findProductsByCode = function(code) {
+    console.log(`\n=== BUSCANDO PRODUTOS COM CÓDIGO: ${code} ===`);
+    const found = products.filter(p => p.code === code);
+    console.log(`Encontrados ${found.length} produtos:`);
+    found.forEach((p, idx) => {
+        console.log(`  [${idx}] ID: ${p.id} | Tipo: ${typeof p.id} | Código: ${p.code} | Descrição: ${p.description}`);
+    });
+    
+    if (window.supabase) {
+        supabase.from('products').select('*').eq('code', code).then(({data, error}) => {
+            if (error) {
+                console.error('Erro ao buscar no Supabase:', error);
+            } else {
+                console.log(`Supabase encontrou ${data?.length || 0} produtos:`);
+                data?.forEach((p, idx) => {
+                    console.log(`  [${idx}] ID: ${p.id} | Código: ${p.code} | Descrição: ${p.description}`);
+                });
+            }
+        });
+    }
+    return found;
+};
+
+// 🔍 DIAGNÓSTICO: Listar todos os produtos com código 123456789
+window.findProblematicProducts = function() {
+    console.log('\n=== VERIFICANDO PRODUTOS COM CÓDIGO 123456789 ===');
+    return window.findProductsByCode('123456789');
+};
+
 // Adicionar handlers de navegação IMEDIATAMENTE (antes do DOMContentLoaded)
 setTimeout(() => {
     console.log('Adicionando event listeners aos botões de navegação...');
@@ -291,12 +321,11 @@ async function loadFromStorage() {
             return;
         }
         
-        // Se conseguiu dados do Supabase, verificar se há novos produtos lá
+        // ✅ CRÍTICO: Se conseguiu dados do Supabase, SEMPRE usar esses dados com IDs reais
         if (data && data.length > 0) {
             console.log(`📡 ${data.length} produtos encontrados no Supabase`);
             
-            // Mesclar: manter produtos do localStorage + adicionar novos do Supabase
-            const localCodes = new Set(products.map(p => p.code));
+            // Converter dados do Supabase para formato correto
             const supabaseProducts = data.map(p => ({
                 id: Number(p.id),
                 code: p.code,
@@ -306,41 +335,28 @@ async function loadFromStorage() {
                 image: p.image || ''
             }));
             
-            console.log('📋 IDs do Supabase:', supabaseProducts.map(p => ({ code: p.code, id: p.id })));
+            console.log('📋 IDs do Supabase:', supabaseProducts.map(p => ({ code: p.code, id: p.id, type: typeof p.id })));
             
-            // Atualizar produtos locais com IDs do Supabase (para produtos sem ID válido)
-            const updatedProducts = products.map(localProduct => {
-                const supabaseProduct = supabaseProducts.find(sp => sp.code === localProduct.code);
-                if (supabaseProduct) {
-                    // ✅ CRÍTICO: Usar dados do Supabase com IDs válidos
-                    if (!localProduct.id || isNaN(localProduct.id) || localProduct.id > Date.now() - 100000) {
-                        console.log(`🔄 ATUALIZANDO ID: ${localProduct.code} → ${supabaseProduct.id}`);
-                    }
-                    return supabaseProduct;
-                }
-                return localProduct;
-            });
-            
-            // Adicionar produtos do Supabase que não estão no localStorage
-            supabaseProducts.forEach(supabaseProduct => {
-                if (!localCodes.has(supabaseProduct.code)) {
-                    updatedProducts.push(supabaseProduct);
-                    console.log(`📌 Novo produto adicionado do Supabase: ${supabaseProduct.code}`);
-                }
-            });
-            
-            products = updatedProducts;
-            // Atualizar localStorage com IDs corretos
-            localStorage.setItem('gallant_products', JSON.stringify(products));
+            // ✅ ESTRATÉGIA: Usar produtos do Supabase como fonte de verdade
+            // Depois adicionar categorias do localStorage se houver
+            products = supabaseProducts;
             
             // Extrair categorias dos produtos
-            const cats = [...new Set(products.map(p => p.category))];
-            categories = [...new Set([...categories, ...cats])];
+            const cats = [...new Set(products.map(p => p.category).filter(c => c))];
+            if (categories.length === 0) {
+                categories = cats;
+            } else {
+                categories = [...new Set([...categories, ...cats])];
+            }
             
-            console.log(`✅ Sincronização concluída: ${products.length} produtos totais`);
-            console.log('📋 IDs FINAIS:', products.map(p => ({ code: p.code, id: p.id })));
+            // ✅ Atualizar localStorage com IDs reais do Supabase
+            localStorage.setItem('gallant_products', JSON.stringify(products));
+            localStorage.setItem('gallant_categories', JSON.stringify(categories));
+            
+            console.log(`✅ Sincronização concluída: ${products.length} produtos com IDs reais`);
+            console.log('📋 IDs FINAIS:', products.map(p => ({ code: p.code, id: p.id, type: typeof p.id })));
         } else {
-            console.log('ℹ️ Nenhum produto no Supabase (OK se é primeira vez)');
+            console.log('ℹ️ Nenhum produto no Supabase, usando localStorage');
         }
     } catch (error) {
         console.error('❌ Erro ao carregar:', error.message || error);
@@ -382,7 +398,7 @@ function switchTab(tabName) {
         categories: 'Categorias',
         images: 'Gerenciar Imagens',
         preview: 'Visualizar Catálogo',
-        backup: 'Backup'
+        backup: 'Imprimir'
     };
     const titleElement = document.querySelector('.top-bar-title');
     if (titleElement) {
@@ -469,7 +485,34 @@ function editProduct(id) {
     console.log('✏️ Editando produto ID:', numId, 'ID original:', id);
     console.log('📋 Array de produtos:', products.map(p => ({ code: p.code, id: p.id, numId: Number(p.id) })));
     
-    const product = products.find(p => Number(p.id) === numId);
+    let product = products.find(p => Number(p.id) === numId);
+    // ✅ Fallback: se ID inválido, tentar encontrar por código
+    if (!product && (isNaN(numId) || numId <= 0)) {
+        console.warn('⚠️ ID inválido, tentando encontrar por código');
+        product = products.find(p => p.code === String(id));
+    }
+    
+    // ✅ NOVO: Se ainda não encontrou, mostrar diálogo de seleção se houver múltiplos
+    if (!product) {
+        const codeStr = String(id);
+        const matchingProducts = products.filter(p => p.code === codeStr || String(p.id) === codeStr);
+        
+        if (matchingProducts.length > 1) {
+            console.warn(`⚠️ Encontrados ${matchingProducts.length} produtos com código/ID similar`);
+            const productList = matchingProducts.map((p, idx) => `${idx + 1}. ${p.code} - ${p.description} (ID: ${p.id})`).join('\n');
+            const selected = prompt(`Encontrados ${matchingProducts.length} produtos:\n\n${productList}\n\nQual deseja editar? (1-${matchingProducts.length})`);
+            
+            if (selected && selected >= 1 && selected <= matchingProducts.length) {
+                product = matchingProducts[selected - 1];
+                console.log(`✓ Produto selecionado: ${product.code}`);
+            } else {
+                console.error('❌ Nenhum produto selecionado');
+                alert('Nenhum produto selecionado.');
+                return;
+            }
+        }
+    }
+    
     if (!product) {
         console.error('❌ Produto não encontrado com ID:', numId);
         console.error('❌ IDs disponíveis:', products.map(p => Number(p.id)));
@@ -477,7 +520,7 @@ function editProduct(id) {
         return;
     }
     
-    editingProductId = id;
+    editingProductId = product.id;
     
     const modalTitle = document.getElementById('modalTitle');
     if (modalTitle) {
@@ -530,19 +573,53 @@ function deleteProduct(id) {
     console.log('🗑️ Deletando produto ID:', numId, 'ID original:', id);
     console.log('📋 Array de produtos:', products.map(p => ({ code: p.code, id: p.id, numId: Number(p.id) })));
     
-    const productIndex = products.findIndex(p => Number(p.id) === numId);
+    let productIndex = products.findIndex(p => Number(p.id) === numId);
+    let foundProduct = null;
+    
+    if (productIndex !== -1) {
+        foundProduct = products[productIndex];
+    } else if (isNaN(numId) || numId <= 0) {
+        // ✅ Fallback: se ID inválido, tentar encontrar por código
+        console.warn('⚠️ ID inválido, tentando encontrar por código');
+        productIndex = products.findIndex(p => p.code === String(id));
+        if (productIndex !== -1) {
+            foundProduct = products[productIndex];
+        }
+    }
+    
+    // ✅ NOVO: Se houver múltiplos produtos com o mesmo código
     if (productIndex === -1) {
+        const codeStr = String(id);
+        const matchingProducts = products.filter(p => p.code === codeStr || String(p.id) === codeStr);
+        
+        if (matchingProducts.length > 1) {
+            console.warn(`⚠️ Encontrados ${matchingProducts.length} produtos com código/ID similar`);
+            const productList = matchingProducts.map((p, idx) => `${idx + 1}. ${p.code} - ${p.description} (ID: ${p.id})`).join('\n');
+            const selected = prompt(`Encontrados ${matchingProducts.length} produtos:\n\n${productList}\n\nQual deseja deletar? (1-${matchingProducts.length})`);
+            
+            if (selected && selected >= 1 && selected <= matchingProducts.length) {
+                foundProduct = matchingProducts[selected - 1];
+                productIndex = products.indexOf(foundProduct);
+                console.log(`✓ Produto selecionado para deletar: ${foundProduct.code}`);
+            } else {
+                console.error('❌ Nenhum produto selecionado');
+                alert('Nenhum produto selecionado.');
+                return;
+            }
+        }
+    }
+    
+    if (productIndex === -1 || !foundProduct) {
         console.error('❌ Produto não encontrado com ID:', numId);
         console.error('❌ IDs disponíveis:', products.map(p => Number(p.id)));
         alert('Erro: Produto não encontrado. Tente fazer um refresh na página.');
         return;
     }
     
-    if (confirm('Tem certeza que deseja deletar este produto?')) {
-        const deletedProduct = products[productIndex];
-        console.log('🗑️ Produto a deletar:', deletedProduct.code);
+    if (confirm(`Tem certeza que deseja deletar este produto?\n\n${foundProduct.code} - ${foundProduct.description}`)) {
+        console.log('🗑️ Produto a deletar:', foundProduct.code);
         
-        products = products.filter(p => Number(p.id) !== numId);
+        products.splice(productIndex, 1);
         console.log('🗑️ Produtos após filtro:', products.length);
         
         (async () => {
@@ -660,13 +737,34 @@ async function saveProduct() {
         console.log('✅ saveToStorage() concluído com sucesso');
         console.log('📋 Produtos DEPOIS de salvar:', products.map(p => ({ code: p.code, id: p.id })));
         
-        // Se foi novo produto, procurar o ID real que Supabase retornou
+        // ✅ CRÍTICO: Se era novo produto, recarregar dados do Supabase para garantir ID real
         if (tempId !== null) {
-            const newProduct = products.find(p => p.code === code);
-            if (newProduct && newProduct.id !== tempId && newProduct.id) {
-                console.log('🔄 ID ATUALIZADO: Temp ID', tempId, '→ Real ID', newProduct.id);
-            } else {
-                console.warn('⚠️ AVISO: Produto novo ainda sem ID real!', { tempId, found: !!newProduct, id: newProduct?.id });
+            console.log('⏳ Recarregando IDs do Supabase...');
+            try {
+                const { data, error } = await supabase.from('products').select('*');
+                if (!error && data) {
+                    // Atualizar produtos com dados reais do Supabase
+                    const supabaseMap = new Map(data.map(p => [p.code, { id: Number(p.id), ...p }]));
+                    products = products.map(localProd => {
+                        const supabaseProd = supabaseMap.get(localProd.code);
+                        if (supabaseProd) {
+                            console.log(`🔄 ID SINCRONIZADO: ${localProd.code} → ID: ${supabaseProd.id}`);
+                            return {
+                                id: Number(supabaseProd.id),
+                                code: supabaseProd.code,
+                                description: supabaseProd.description,
+                                category: supabaseProd.category,
+                                price: supabaseProd.price.toString(),
+                                image: supabaseProd.image || ''
+                            };
+                        }
+                        return localProd;
+                    });
+                    localStorage.setItem('gallant_products', JSON.stringify(products));
+                    console.log('📋 IDs FINAIS após sincronização:', products.map(p => ({ code: p.code, id: p.id })));
+                }
+            } catch (err) {
+                console.error('⚠️ Erro ao sincronizar IDs:', err);
             }
         }
         
