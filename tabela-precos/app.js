@@ -2,6 +2,19 @@
 const SUPABASE_URL = 'https://gphrtytgcbpjpsvsaehj.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwaHJ0eXRnY2JwanBzdnNhZWhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyNzUxNTcsImV4cCI6MjA3OTg1MTE1N30.-VTZvuV4xREubHQxArPFRKRhpf_CDYeTHyPntl7-LJI';
 
+// 🔍 DIAGNÓSTICO: Verificar estado dos produtos
+window.debugState = function() {
+    console.log('=== DIAGNÓSTICO DE ESTADO ===');
+    console.log('Products array:', products);
+    console.log('Produtos com problemas:', products.filter(p => !p.id || p.id === null || isNaN(p.id)));
+    console.log('localStorage:', JSON.parse(localStorage.getItem('gallant_products')));
+    if (window.supabase) {
+        supabase.from('products').select('*').then(({data}) => {
+            console.log('Supabase products:', data);
+        });
+    }
+};
+
 // Adicionar handlers de navegação IMEDIATAMENTE (antes do DOMContentLoaded)
 setTimeout(() => {
     console.log('Adicionando event listeners aos botões de navegação...');
@@ -207,21 +220,34 @@ async function saveToStorage() {
                 image: p.image || ''
             }));
             
+            console.log('📋 Dados retornados do Supabase:', supabaseProducts.map(p => ({ code: p.code, id: p.id })));
+            
             // Mesclar: manter ordem local mas usar IDs do Supabase
             const updatedProducts = [];
             products.forEach(localProduct => {
                 const supabaseProduct = supabaseProducts.find(sp => sp.code === localProduct.code);
                 if (supabaseProduct) {
+                    // Se é um produto novo (com placeholder ID), será atualizado aqui com ID real
+                    if (localProduct._isNew || (typeof localProduct.id === 'number' && localProduct.id > Date.now() - 100000)) {
+                        console.log(`🔄 PLACEHOLDER ID SUBSTITUÍDO: ${localProduct.id} → ${supabaseProduct.id} (${localProduct.code})`);
+                    }
                     updatedProducts.push(supabaseProduct);
                 } else {
                     updatedProducts.push(localProduct);
                 }
             });
             
+            // Verificar se todos os produtos têm ID agora
+            const missingIds = updatedProducts.filter(p => !p.id || isNaN(p.id));
+            if (missingIds.length > 0) {
+                console.warn('⚠️ AVISO: Alguns produtos ainda sem ID após Supabase:', missingIds.map(p => p.code));
+            }
+            
             products = updatedProducts;
             // Atualizar localStorage com IDs corretos
             localStorage.setItem('gallant_products', JSON.stringify(products));
-            console.log('📊 Primeiros produtos (com IDs):', data.slice(0, 2));
+            console.log('✅ localStorage atualizado com IDs reais');
+            console.log('📊 Primeiros produtos (com IDs reais):', data.slice(0, 2));
         }
         
     } catch (error) {
@@ -242,6 +268,7 @@ async function loadFromStorage() {
         if (stored) {
             products = JSON.parse(stored);
             console.log(`✅ ${products.length} produtos carregados do localStorage`);
+            console.log('📋 IDs no localStorage:', products.map(p => ({ code: p.code, id: p.id, type: typeof p.id })));
         }
         
         if (storedCategories) {
@@ -279,10 +306,16 @@ async function loadFromStorage() {
                 image: p.image || ''
             }));
             
+            console.log('📋 IDs do Supabase:', supabaseProducts.map(p => ({ code: p.code, id: p.id })));
+            
             // Atualizar produtos locais com IDs do Supabase (para produtos sem ID válido)
             const updatedProducts = products.map(localProduct => {
                 const supabaseProduct = supabaseProducts.find(sp => sp.code === localProduct.code);
                 if (supabaseProduct) {
+                    // ✅ CRÍTICO: Usar dados do Supabase com IDs válidos
+                    if (!localProduct.id || isNaN(localProduct.id) || localProduct.id > Date.now() - 100000) {
+                        console.log(`🔄 ATUALIZANDO ID: ${localProduct.code} → ${supabaseProduct.id}`);
+                    }
                     return supabaseProduct;
                 }
                 return localProduct;
@@ -305,7 +338,7 @@ async function loadFromStorage() {
             categories = [...new Set([...categories, ...cats])];
             
             console.log(`✅ Sincronização concluída: ${products.length} produtos totais`);
-            console.log('📊 Produtos após sincronização:', products.slice(0, 2));
+            console.log('📋 IDs FINAIS:', products.map(p => ({ code: p.code, id: p.id })));
         } else {
             console.log('ℹ️ Nenhum produto no Supabase (OK se é primeira vez)');
         }
@@ -372,9 +405,12 @@ function renderProducts() {
         return;
     }
     
+    console.log('🎨 RENDERIZANDO', products.length, 'produtos');
+    console.log('📋 IDs dos produtos:', products.map(p => ({ code: p.code, id: p.id, type: typeof p.id })));
+    
     container.innerHTML = products.map(product => {
         const imageUrl = product.image && product.image.trim() ? product.image.trim() : '';
-        console.log('Renderizando produto:', { code: product.code, image: imageUrl, hasImage: !!imageUrl });
+        console.log('Renderizando produto:', { code: product.code, id: product.id, type: typeof product.id });
         
         return `
         <div class="product-card">
@@ -430,10 +466,14 @@ function closeProductModal() {
 
 function editProduct(id) {
     const numId = Number(id);
-    console.log('✏️ Editando produto ID:', numId);
+    console.log('✏️ Editando produto ID:', numId, 'ID original:', id);
+    console.log('📋 Array de produtos:', products.map(p => ({ code: p.code, id: p.id, numId: Number(p.id) })));
+    
     const product = products.find(p => Number(p.id) === numId);
     if (!product) {
         console.error('❌ Produto não encontrado com ID:', numId);
+        console.error('❌ IDs disponíveis:', products.map(p => Number(p.id)));
+        alert('Erro: Produto não encontrado. Tente fazer um refresh na página.');
         return;
     }
     
@@ -486,14 +526,19 @@ function editProduct(id) {
 }
 
 function deleteProduct(id) {
+    const numId = Number(id);
+    console.log('🗑️ Deletando produto ID:', numId, 'ID original:', id);
+    console.log('📋 Array de produtos:', products.map(p => ({ code: p.code, id: p.id, numId: Number(p.id) })));
+    
+    const productIndex = products.findIndex(p => Number(p.id) === numId);
+    if (productIndex === -1) {
+        console.error('❌ Produto não encontrado com ID:', numId);
+        console.error('❌ IDs disponíveis:', products.map(p => Number(p.id)));
+        alert('Erro: Produto não encontrado. Tente fazer um refresh na página.');
+        return;
+    }
+    
     if (confirm('Tem certeza que deseja deletar este produto?')) {
-        const numId = Number(id);
-        console.log('🗑️ Deletando produto ID:', numId);
-        const productIndex = products.findIndex(p => Number(p.id) === numId);
-        if (productIndex === -1) {
-            console.error('❌ Produto não encontrado com ID:', numId);
-            return;
-        }
         const deletedProduct = products[productIndex];
         console.log('🗑️ Produto a deletar:', deletedProduct.code);
         
@@ -569,6 +614,8 @@ async function saveProduct() {
             }
         }
         
+        let tempId = null; // Para rastrear novo produto enquanto aguarda ID real
+        
         if (editingProductId) {
             // Editar
             const numEditId = Number(editingProductId);
@@ -588,23 +635,40 @@ async function saveProduct() {
             }
             console.log('✏️ Produto atualizado:', product);
         } else {
-            // Novo produto
+            // Novo produto - ATRIBUIR PLACEHOLDER ID IMEDIATAMENTE
             console.log('➕ Modo NOVO PRODUTO');
+            tempId = Date.now() + Math.random(); // ID temporário único
             const newProduct = {
+                id: tempId,
                 code,
                 description,
                 category,
                 price,
-                image: imageUrl || ''
+                image: imageUrl || '',
+                _isNew: true // Marcador de novo produto
             };
             products.push(newProduct);
-            console.log('➕ Novo produto adicionado:', newProduct);
+            console.log('➕ Novo produto adicionado com ID temporário:', tempId, newProduct);
         }
         
         console.log('📊 Total de produtos:', products.length);
         console.log('💾 Chamando saveToStorage()...');
+        console.log('📋 Produtos ANTES de salvar:', products.map(p => ({ code: p.code, id: p.id })));
+        
         await saveToStorage();
+        
         console.log('✅ saveToStorage() concluído com sucesso');
+        console.log('📋 Produtos DEPOIS de salvar:', products.map(p => ({ code: p.code, id: p.id })));
+        
+        // Se foi novo produto, procurar o ID real que Supabase retornou
+        if (tempId !== null) {
+            const newProduct = products.find(p => p.code === code);
+            if (newProduct && newProduct.id !== tempId && newProduct.id) {
+                console.log('🔄 ID ATUALIZADO: Temp ID', tempId, '→ Real ID', newProduct.id);
+            } else {
+                console.warn('⚠️ AVISO: Produto novo ainda sem ID real!', { tempId, found: !!newProduct, id: newProduct?.id });
+            }
+        }
         
         renderProducts();
         updatePreview();
@@ -949,6 +1013,41 @@ function downloadJSON() {
     a.href = url;
     a.download = `gallant-catalogo-${new Date().getTime()}.json`;
     a.click();
+}
+
+function importJSON(event) {
+    const file = event.target.files?.[0] || event.target?.parentElement?.querySelector('input[type="file"]')?.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+            
+            if (!data.products || !Array.isArray(data.products)) {
+                throw new Error('Formato JSON inválido: produtos não encontrados');
+            }
+            
+            // Importar produtos e categorias
+            products = data.products || [];
+            categories = data.categories || [];
+            
+            console.log(`✅ Importados ${products.length} produtos e ${categories.length} categorias`);
+            
+            // Salvar e sincronizar
+            await saveToStorage();
+            renderProducts();
+            renderCategories();
+            updatePreview();
+            
+            alert(`✅ Importação concluída!\n${products.length} produtos e ${categories.length} categorias`);
+        } catch (error) {
+            console.error('❌ Erro ao importar JSON:', error);
+            alert('❌ Erro ao importar: ' + error.message);
+        }
+    };
+    
+    reader.readAsText(file);
 }
 
 function exportImageMapping() {
