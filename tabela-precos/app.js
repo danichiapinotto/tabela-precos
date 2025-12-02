@@ -195,8 +195,10 @@ async function saveToStorage() {
         
         if (data) {
             console.log(`✅ ${data.length} produtos salvos no Supabase!`);
-            // Atualizar IDs dos produtos localmente (para novos produtos que ganharam ID do Supabase)
-            products = data.map(p => ({
+            
+            // IMPORTANTE: Atualizar a array local com os dados retornados do Supabase
+            // Isso garante que os novos produtos ganhem IDs válidos
+            const supabaseProducts = data.map(p => ({
                 id: Number(p.id),
                 code: p.code,
                 description: p.description,
@@ -204,9 +206,22 @@ async function saveToStorage() {
                 price: p.price.toString(),
                 image: p.image || ''
             }));
-            // Atualizar localStorage com IDs retornados do Supabase
+            
+            // Mesclar: manter ordem local mas usar IDs do Supabase
+            const updatedProducts = [];
+            products.forEach(localProduct => {
+                const supabaseProduct = supabaseProducts.find(sp => sp.code === localProduct.code);
+                if (supabaseProduct) {
+                    updatedProducts.push(supabaseProduct);
+                } else {
+                    updatedProducts.push(localProduct);
+                }
+            });
+            
+            products = updatedProducts;
+            // Atualizar localStorage com IDs corretos
             localStorage.setItem('gallant_products', JSON.stringify(products));
-            console.log('📊 Primeiros produtos:', data.slice(0, 2));
+            console.log('📊 Primeiros produtos (com IDs):', data.slice(0, 2));
         }
         
     } catch (error) {
@@ -264,19 +279,33 @@ async function loadFromStorage() {
                 image: p.image || ''
             }));
             
+            // Atualizar produtos locais com IDs do Supabase (para produtos sem ID válido)
+            const updatedProducts = products.map(localProduct => {
+                const supabaseProduct = supabaseProducts.find(sp => sp.code === localProduct.code);
+                if (supabaseProduct) {
+                    return supabaseProduct;
+                }
+                return localProduct;
+            });
+            
             // Adicionar produtos do Supabase que não estão no localStorage
             supabaseProducts.forEach(supabaseProduct => {
                 if (!localCodes.has(supabaseProduct.code)) {
-                    products.push(supabaseProduct);
+                    updatedProducts.push(supabaseProduct);
                     console.log(`📌 Novo produto adicionado do Supabase: ${supabaseProduct.code}`);
                 }
             });
+            
+            products = updatedProducts;
+            // Atualizar localStorage com IDs corretos
+            localStorage.setItem('gallant_products', JSON.stringify(products));
             
             // Extrair categorias dos produtos
             const cats = [...new Set(products.map(p => p.category))];
             categories = [...new Set([...categories, ...cats])];
             
             console.log(`✅ Sincronização concluída: ${products.length} produtos totais`);
+            console.log('📊 Produtos após sincronização:', products.slice(0, 2));
         } else {
             console.log('ℹ️ Nenhum produto no Supabase (OK se é primeira vez)');
         }
@@ -561,14 +590,15 @@ async function saveProduct() {
         } else {
             // Novo produto
             console.log('➕ Modo NOVO PRODUTO');
-            products.push({
+            const newProduct = {
                 code,
                 description,
                 category,
                 price,
                 image: imageUrl || ''
-            });
-            console.log('➕ Novo produto adicionado');
+            };
+            products.push(newProduct);
+            console.log('➕ Novo produto adicionado:', newProduct);
         }
         
         console.log('📊 Total de produtos:', products.length);
