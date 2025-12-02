@@ -218,28 +218,44 @@ async function saveToStorage() {
 
 async function loadFromStorage() {
     try {
-        console.log('📥 Carregando produtos do Supabase...');
+        console.log('📥 Carregando produtos...');
         
-        // Se Supabase não está disponível, usar localStorage
+        // PRIORIDADE 1: Sempre carregar localStorage primeiro (mais rápido e confiável)
+        const stored = localStorage.getItem('gallant_products');
+        const storedCategories = localStorage.getItem('gallant_categories');
+        
+        if (stored) {
+            products = JSON.parse(stored);
+            console.log(`✅ ${products.length} produtos carregados do localStorage`);
+        }
+        
+        if (storedCategories) {
+            categories = JSON.parse(storedCategories);
+            console.log(`✅ ${categories.length} categorias carregadas do localStorage`);
+        }
+        
+        // PRIORIDADE 2: Se Supabase não está disponível, termina aqui
         if (!supabase) {
-            console.warn('⚠️ Supabase não disponível, usando localStorage');
-            const stored = localStorage.getItem('gallant_products');
-            if (stored) {
-                products = JSON.parse(stored);
-                console.log('📥 Produtos carregados do localStorage');
-            }
+            console.warn('⚠️ Supabase não disponível, usando apenas localStorage');
             return;
         }
         
+        console.log('💾 Sincronizando com Supabase...');
         const { data, error } = await supabase.from('products').select('*');
         
         if (error) {
-            console.error('❌ Erro do Supabase:', error.message);
-            throw error;
+            console.error('❌ Erro ao sincronizar com Supabase:', error.message);
+            console.warn('⚠️ Continuando com dados do localStorage');
+            return;
         }
         
+        // Se conseguiu dados do Supabase, verificar se há novos produtos lá
         if (data && data.length > 0) {
-            products = data.map(p => ({
+            console.log(`📡 ${data.length} produtos encontrados no Supabase`);
+            
+            // Mesclar: manter produtos do localStorage + adicionar novos do Supabase
+            const localCodes = new Set(products.map(p => p.code));
+            const supabaseProducts = data.map(p => ({
                 id: Number(p.id),
                 code: p.code,
                 description: p.description,
@@ -248,33 +264,31 @@ async function loadFromStorage() {
                 image: p.image || ''
             }));
             
+            // Adicionar produtos do Supabase que não estão no localStorage
+            supabaseProducts.forEach(supabaseProduct => {
+                if (!localCodes.has(supabaseProduct.code)) {
+                    products.push(supabaseProduct);
+                    console.log(`📌 Novo produto adicionado do Supabase: ${supabaseProduct.code}`);
+                }
+            });
+            
             // Extrair categorias dos produtos
             const cats = [...new Set(products.map(p => p.category))];
             categories = [...new Set([...categories, ...cats])];
             
-            console.log(`✅ ${products.length} produtos carregados do Supabase!`);
+            console.log(`✅ Sincronização concluída: ${products.length} produtos totais`);
         } else {
-            console.log('ℹ️ Nenhum produto no Supabase ainda');
-            // Tentar carregar do localStorage como fallback
-            const stored = localStorage.getItem('gallant_products');
-            if (stored) {
-                products = JSON.parse(stored);
-                console.log('📥 Produtos carregados do localStorage (fallback)');
-            }
-        }
-        
-        // Carregar categorias do localStorage
-        const storedCategories = localStorage.getItem('gallant_categories');
-        if (storedCategories) {
-            categories = JSON.parse(storedCategories);
+            console.log('ℹ️ Nenhum produto no Supabase (OK se é primeira vez)');
         }
     } catch (error) {
-        console.error('❌ Erro ao carregar do Supabase:', error.message || error);
-        // Fallback para localStorage
+        console.error('❌ Erro ao carregar:', error.message || error);
+        console.warn('⚠️ Usando dados do localStorage como fallback');
+        
+        // Garantir que pelo menos localStorage seja carregado
         const stored = localStorage.getItem('gallant_products');
         if (stored) {
             products = JSON.parse(stored);
-            console.log('📥 Fallback: Produtos carregados do localStorage');
+            console.log(`📥 Fallback: ${products.length} produtos do localStorage`);
         }
     }
 }
