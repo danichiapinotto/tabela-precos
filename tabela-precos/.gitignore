@@ -1,0 +1,24 @@
+# Arquivos de configuração com credenciais
+config.js
+
+# Backups
+*.backup
+*.bak
+
+# Cache
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+npm-debug.log
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sistema
+.env
+.env.local
