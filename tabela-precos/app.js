@@ -1,6 +1,14 @@
 // ===== CONFIGURAÇÃO SUPABASE =====
-const SUPABASE_URL = 'https://gphrtytgcbpjpsvsaehj.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwaHJ0eXRnY2JwanBzdnNhZWhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyNzUxNTcsImV4cCI6MjA3OTg1MTE1N30.-VTZvuV4xREubHQxArPFRKRhpf_CDYeTHyPntl7-LJI';
+console.log('✅ app.js carregado!');
+
+// Verificar se config.js foi carregado
+if (typeof CONFIG === 'undefined') {
+    console.error('❌ Erro: config.js não foi carregado! Crie um arquivo config.js com suas credenciais Supabase.');
+    alert('Erro: Arquivo de configuração não encontrado. Veja o console para detalhes.');
+}
+
+const SUPABASE_URL = CONFIG?.SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = CONFIG?.SUPABASE_ANON_KEY || '';
 
 // 🔍 DIAGNÓSTICO: Verificar estado dos produtos
 window.debugState = function() {
@@ -45,80 +53,13 @@ window.findProblematicProducts = function() {
     return window.findProductsByCode('123456789');
 };
 
-// Adicionar handlers de navegação IMEDIATAMENTE (antes do DOMContentLoaded)
-setTimeout(() => {
-    console.log('Adicionando event listeners aos botões de navegação...');
-    document.querySelectorAll('[data-tab]').forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            const tabName = this.getAttribute('data-tab');
-            console.log('Clique no botão:', tabName);
-            switchTab(tabName);
-        });
-    });
-    
-    // Upload de Imagens - AQUI TAMBÉM
-    const uploadImagesBtn = document.getElementById('uploadImagesBtn');
-    const imageFilesInput = document.getElementById('imageFilesInput');
-    console.log('uploadImagesBtn encontrado?', !!uploadImagesBtn);
-    console.log('imageFilesInput encontrado?', !!imageFilesInput);
-    
-    if (uploadImagesBtn && imageFilesInput) {
-        uploadImagesBtn.addEventListener('click', async () => {
-            console.log('Clique em uploadImagesBtn');
-            if (!imageFilesInput.files.length) {
-                alert('Selecione imagens para fazer upload');
-                return;
-            }
-            console.log('Iniciando upload de', imageFilesInput.files.length, 'imagens');
-            const uploadProgress = document.getElementById('uploadProgress');
-            uploadProgress.innerHTML = '<p style="color: #2196F3;">⏳ Enviando...</p>';
-            try {
-                const results = await uploadImagesToSupabase(imageFilesInput.files);
-                console.log('Upload concluído:', results.length, 'imagens');
-                uploadProgress.innerHTML = `<p style="color: #4caf50;">✅ ${results.length} imagens enviadas com sucesso!</p>`;
-                imageFilesInput.value = '';
-            } catch (error) {
-                console.error('Erro no upload:', error);
-                uploadProgress.innerHTML = `<p style="color: #f44336;">❌ Erro ao enviar: ${error.message}</p>`;
-            }
-        });
-        console.log('Event listener adicionado ao uploadImagesBtn');
-    }
-    
-    // Export/Import Image Mapping - AQUI TAMBÉM
-    const exportMappingBtn = document.getElementById('exportMappingBtn');
-    const importMappingBtn = document.getElementById('importMappingBtn');
-    const importMappingInput = document.getElementById('importMappingInput');
-    const listImagesBtn = document.getElementById('listImagesBtn');
-    const exportImagesCSVBtn = document.getElementById('exportImagesCSVBtn');
-    
-    console.log('exportMappingBtn encontrado?', !!exportMappingBtn);
-    console.log('importMappingBtn encontrado?', !!importMappingBtn);
-    console.log('listImagesBtn encontrado?', !!listImagesBtn);
-    console.log('exportImagesCSVBtn encontrado?', !!exportImagesCSVBtn);
-    
-    if (listImagesBtn) {
-        listImagesBtn.addEventListener('click', listUploadedImages);
-        console.log('Event listener adicionado ao listImagesBtn');
-    }
-    if (exportImagesCSVBtn) {
-        exportImagesCSVBtn.addEventListener('click', exportUploadedImagesCSV);
-        console.log('Event listener adicionado ao exportImagesCSVBtn');
-    }
-    if (exportMappingBtn) {
-        exportMappingBtn.addEventListener('click', exportImageMapping);
-        console.log('Event listener adicionado ao exportMappingBtn');
-    }
-    if (importMappingBtn && importMappingInput) {
-        importMappingBtn.addEventListener('click', () => importMappingInput.click());
-        importMappingInput.addEventListener('change', importImageMapping);
-        console.log('Event listeners adicionados ao importMappingBtn');
-    }
-}, 100);
+
 
 // Inicializar cliente Supabase
-let supabase = null;
+if (typeof supabase === 'undefined') {
+    var supabase = null;
+}
+
 try {
     const { createClient } = window.supabase;
     if (createClient) {
@@ -1579,17 +1520,23 @@ function clearAllData() {
 
 // ===== EVENT LISTENERS (Material UI) =====
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('DOMContentLoaded disparado');
-    console.log('Botões encontrados:', document.querySelectorAll('[data-tab]').length);
+    console.log('✅ DOMContentLoaded disparado');
+    console.log('✅ Botões encontrados:', document.querySelectorAll('[data-tab]').length);
+    console.log('✅ Carregando dados...');
     
     // INICIALIZAR DADOS
     await loadFromStorage();
+    console.log('✅ loadFromStorage concluído');
     updateCategoriesSelect();
+    console.log('✅ updateCategoriesSelect concluído');
     renderProducts();
+    console.log('✅ renderProducts concluído');
     renderCategories();
+    console.log('✅ renderCategories concluído');
     updatePreview();
+    console.log('✅ updatePreview concluído');
     
-    console.log('Dados carregados. Produtos:', products, 'Categorias:', categories);
+    console.log('✅ Todos os dados carregados. Produtos:', products.length, 'Categorias:', categories.length);
     
     // Botão Novo Produto
     const addProductBtn = document.getElementById('addProductBtn');
@@ -1673,6 +1620,80 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (importCsvBtn && importCsvInput) {
         importCsvBtn.addEventListener('click', () => importCsvInput.click());
         importCsvInput.addEventListener('change', (e) => importCSV(e));
+    }
+    
+    // NAVEGAÇÃO - Adicionar event listeners aos botões de abas
+    console.log('✅ Adicionando event listeners aos botões de navegação...');
+    const navButtons = document.querySelectorAll('[data-tab]');
+    console.log('✅ Encontrados', navButtons.length, 'botões de navegação');
+    
+    navButtons.forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const tabName = this.getAttribute('data-tab');
+            console.log('✅ Clique no botão:', tabName);
+            switchTab(tabName);
+        });
+    });
+    console.log('✅ Event listeners de navegação adicionados com sucesso');
+    
+    // Upload de Imagens
+    const uploadImagesBtn = document.getElementById('uploadImagesBtn');
+    const imageFilesInput = document.getElementById('imageFilesInput');
+    console.log('uploadImagesBtn encontrado?', !!uploadImagesBtn);
+    console.log('imageFilesInput encontrado?', !!imageFilesInput);
+    
+    if (uploadImagesBtn && imageFilesInput) {
+        uploadImagesBtn.addEventListener('click', async () => {
+            console.log('Clique em uploadImagesBtn');
+            if (!imageFilesInput.files.length) {
+                alert('Selecione imagens para fazer upload');
+                return;
+            }
+            console.log('Iniciando upload de', imageFilesInput.files.length, 'imagens');
+            const uploadProgress = document.getElementById('uploadProgress');
+            uploadProgress.innerHTML = '<p style="color: #2196F3;">⏳ Enviando...</p>';
+            try {
+                const results = await uploadImagesToSupabase(imageFilesInput.files);
+                console.log('Upload concluído:', results.length, 'imagens');
+                uploadProgress.innerHTML = `<p style="color: #4caf50;">✅ ${results.length} imagens enviadas com sucesso!</p>`;
+                imageFilesInput.value = '';
+            } catch (error) {
+                console.error('Erro no upload:', error);
+                uploadProgress.innerHTML = `<p style="color: #f44336;">❌ Erro ao enviar: ${error.message}</p>`;
+            }
+        });
+        console.log('Event listener adicionado ao uploadImagesBtn');
+    }
+    
+    // Export/Import Image Mapping
+    const exportMappingBtn = document.getElementById('exportMappingBtn');
+    const importMappingBtn = document.getElementById('importMappingBtn');
+    const importMappingInput = document.getElementById('importMappingInput');
+    const listImagesBtn = document.getElementById('listImagesBtn');
+    const exportImagesCSVBtn = document.getElementById('exportImagesCSVBtn');
+    
+    console.log('exportMappingBtn encontrado?', !!exportMappingBtn);
+    console.log('importMappingBtn encontrado?', !!importMappingBtn);
+    console.log('listImagesBtn encontrado?', !!listImagesBtn);
+    console.log('exportImagesCSVBtn encontrado?', !!exportImagesCSVBtn);
+    
+    if (listImagesBtn) {
+        listImagesBtn.addEventListener('click', listUploadedImages);
+        console.log('Event listener adicionado ao listImagesBtn');
+    }
+    if (exportImagesCSVBtn) {
+        exportImagesCSVBtn.addEventListener('click', exportUploadedImagesCSV);
+        console.log('Event listener adicionado ao exportImagesCSVBtn');
+    }
+    if (exportMappingBtn) {
+        exportMappingBtn.addEventListener('click', exportImageMapping);
+        console.log('Event listener adicionado ao exportMappingBtn');
+    }
+    if (importMappingBtn && importMappingInput) {
+        importMappingBtn.addEventListener('click', () => importMappingInput.click());
+        importMappingInput.addEventListener('change', importImageMapping);
+        console.log('Event listeners adicionados ao importMappingBtn');
     }
     
 });
