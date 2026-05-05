@@ -150,14 +150,22 @@ async function saveToStorage() {
         }
         
         // Preparar dados para inserção
-        const productsToInsert = products.map(p => ({
-            ...(p.id && Number(p.id) > 0 ? { id: Number(p.id) } : {}),
-            code: p.code,
-            description: p.description,
-            category: p.category,
-            price: parseFloat(p.price),
-            image: p.image || null
-        }));
+        const productsToInsert = products.map(p => {
+            const result = {
+                code: p.code,
+                description: p.description,
+                category: p.category,
+                price: parseFloat(p.price),
+                image: p.image || null
+            };
+            
+            // Só incluir ID se for um número válido e positivo
+            if (p.id && !isNaN(p.id) && Number(p.id) > 0) {
+                result.id = Number(p.id);
+            }
+            
+            return result;
+        });
         
         console.log(`📝 Preparando ${productsToInsert.length} produtos para inserção...`);
         
@@ -1476,12 +1484,13 @@ function importCSV(event) {
                 
                 if (code && description && category && price && price !== 'NaN') {
                     newProducts.push({
-                        id: Date.now().toString() + Math.random(),
+                        id: '', // ✅ Deixar vazio para Supabase gerar ID real
                         code,
                         description,
                         category,
                         price,
-                        image: validImage
+                        image: validImage,
+                        _isNew: true // Marcador de novo produto
                     });
                     
                     newCategories.add(category);
