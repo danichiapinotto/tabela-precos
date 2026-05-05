@@ -77,6 +77,7 @@ try {
 let products = [];
 let categories = ['Ferramentas', 'Capacitores', 'Cortina de Ar', 'Suportes'];
 let editingProductId = null;
+let deletedProductIds = []; // ✅ NOVO: Rastrear produtos deletados para sincronizar com Supabase
 
 const ITEMS_PER_PAGE = 10;
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
@@ -175,6 +176,26 @@ async function saveToStorage() {
             console.error('📋 Detalhes completos:', JSON.stringify(error, null, 2));
             console.warn('⚠️ Dados já foram salvos no localStorage, continuando...');
             return;
+        }
+        
+        // ✅ NOVO: Deletar produtos marcados como deletados
+        if (deletedProductIds.length > 0) {
+            console.log(`🗑️ Deletando ${deletedProductIds.length} produtos do Supabase:`, deletedProductIds);
+            for (const deleteId of deletedProductIds) {
+                const { error: deleteError } = await supabase
+                    .from('products')
+                    .delete()
+                    .eq('id', deleteId);
+                
+                if (deleteError) {
+                    console.error(`❌ Erro ao deletar ID ${deleteId}:`, deleteError.message);
+                } else {
+                    console.log(`✅ Produto ID ${deleteId} deletado do Supabase`);
+                }
+            }
+            // Limpar array de deletados após sincronizar
+            deletedProductIds = [];
+            console.log('✅ Fila de deleção limpa');
         }
         
         if (data) {
@@ -559,6 +580,12 @@ function deleteProduct(id) {
     
     if (confirm(`Tem certeza que deseja deletar este produto?\n\n${foundProduct.code} - ${foundProduct.description}`)) {
         console.log('🗑️ Produto a deletar:', foundProduct.code);
+        
+        // ✅ NOVO: Rastrear o ID para deletar do Supabase
+        if (foundProduct.id && Number(foundProduct.id) > 0) {
+            deletedProductIds.push(Number(foundProduct.id));
+            console.log('📌 Adicionado à fila de deleção:', foundProduct.id);
+        }
         
         products.splice(productIndex, 1);
         console.log('🗑️ Produtos após filtro:', products.length);
