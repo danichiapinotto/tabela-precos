@@ -688,11 +688,11 @@ async function saveProduct() {
             }
             console.log('✏️ Produto atualizado:', product);
         } else {
-            // Novo produto - ATRIBUIR PLACEHOLDER ID IMEDIATAMENTE
+            // Novo produto - DEIXAR ID VAZIO PARA SUPABASE GERAR
             console.log('➕ Modo NOVO PRODUTO');
-            tempId = Date.now() + Math.random(); // ID temporário único
+            tempId = code; // Rastrear pelo código para depois sincronizar
             const newProduct = {
-                id: tempId,
+                id: '', // ✅ Deixar vazio para Supabase gerar ID real
                 code,
                 description,
                 category,
@@ -701,7 +701,7 @@ async function saveProduct() {
                 _isNew: true // Marcador de novo produto
             };
             products.push(newProduct);
-            console.log('➕ Novo produto adicionado com ID temporário:', tempId, newProduct);
+            console.log('➕ Novo produto adicionado com ID vazio, código:', tempId, newProduct);
         }
         
         console.log('📊 Total de produtos:', products.length);
